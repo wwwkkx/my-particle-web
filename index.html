@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Wspace</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div id="overlay">
+    <h1>Wspace</h1>
+    <p>Explore the Universe</p>
+    <button id="start-btn" onclick="startApp()">Enter Space</button>
+</div>
+
+<div id="status">系统就绪</div>
+
+<!-- Audio Element -->
+<audio id="bgm" loop>
+    <source src="" type="audio/wav">
+</audio>
+
+<!-- Controls Container -->
+<div class="controls-container">
+    <!-- Music Controls -->
+    <div class="control-item music-control">
+        <div class="music-info">
+            <span id="music-name">🎵 Loading...</span>
+        </div>
+        <div class="music-actions">
+            <button class="icon-btn" onclick="prevSong()" title="上一首">⏮</button>
+            <label class="switch mini">
+                <input type="checkbox" id="music-toggle" onchange="toggleMusic(this)" checked>
+                <span class="slider"></span>
+            </label>
+            <button class="icon-btn" onclick="nextSong()" title="下一首">⏭</button>
+        </div>
+    </div>
+
+    <!-- Camera Toggle -->
+    <div class="control-item">
+        <span>🖐️ 手势</span>
+        <label class="switch">
+            <input type="checkbox" id="camera-toggle" onchange="toggleCamera(this)">
+            <span class="slider"></span>
+        </label>
+    </div>
+</div>
+
+<!-- Solar System Button -->
+<button id="solar-system-btn" onclick="enterSolarSystem()">🌌 进入太阳系</button>
+
+<div id="video-container">
+    <video id="input_video" playsinline></video>
+</div>
+
+<!-- Libraries -->
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/tween.js/18.6.4/tween.umd.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
+
+<!-- Main Logic -->
+<script src="script.js"></script>
+
+</body>
+</html>
