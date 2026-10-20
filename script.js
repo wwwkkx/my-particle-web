@@ -11,6 +11,7 @@ let currentCameraTween = null;
 let currentMorphTween = null;
 let themeBeforeSolar = 'christmas';
 let appStarted = false;
+let physicalSolar = null;
 
 const themeNames = {
     sun: '太阳', mercury: '水星', venus: '金星', earth: '地球', mars: '火星',
@@ -55,6 +56,7 @@ const solarSystemPlanets = [
 ];
 
 function getIntersectedPlanet(normalizedMouse) {
+    if (physicalSolar && physicalSolar.active) return physicalSolar.pick(normalizedMouse);
     if (currentShape !== 'solar_system' || isAnimating || !particles) return null;
     particles.updateMatrixWorld(true);
     camera.updateMatrixWorld(true);
@@ -1488,6 +1490,26 @@ function changeTheme(newTheme) {
 function morph(targetType) {
     if (!particles || currentShape === targetType) return;
     if (currentMorphTween) currentMorphTween.stop();
+    if (targetType === 'solar_system') {
+        if (currentCameraTween) currentCameraTween.stop();
+        stopCamera();
+        document.getElementById('camera-toggle').disabled = true;
+        hideCountdownParticles();
+        particles.visible = false;
+        if (leftArrow) leftArrow.visible = false;
+        if (rightArrow) rightArrow.visible = false;
+        currentShape = targetType;
+        isAnimating = false;
+        if (!physicalSolar) physicalSolar = new SolarScene(THREE, scene, camera, renderer.domElement, () => updateSceneControls());
+        physicalSolar.activate();
+        updateSceneControls();
+        return;
+    }
+    if (physicalSolar && physicalSolar.active) {
+        physicalSolar.deactivate();
+        document.getElementById('camera-toggle').disabled = false;
+        particles.visible = true;
+    }
     if (targetType === 'scatter' && currentTheme === 'solar_system') {
         changeTheme(themeBeforeSolar);
     }
@@ -1571,9 +1593,8 @@ function enterSolarSystem() {
         return;
     }
     if (currentTheme !== 'solar_system') themeBeforeSolar = currentTheme;
-    changeTheme('solar_system');
     morph('solar_system');
-    updateStatusText('🌌 太阳系全景：点击行星探索 · 双指或滚轮缩放');
+    updateStatusText('真实比例 · 点击名称跟随 · 实时 1×');
 }
 
 function returnToScatter() {
@@ -1592,6 +1613,11 @@ function toggleShape() {
 
 function explorePlanet(name) {
     if (!Object.hasOwn(themeNames, name)) return;
+    if (physicalSolar && physicalSolar.active && SolarData.byId[name]) {
+        physicalSolar.focus(name);
+        updateStatusText('跟随 ' + themeNames[name] + ' · 时间与数据中可调倍率');
+        return;
+    }
     changeTheme(name);
     morph(shapeForTheme(name));
     updateStatusText('🚀 正在探索：' + themeNames[name] + ' · 拖动旋转');
@@ -1610,9 +1636,10 @@ function updateSceneControls() {
         if (button) button.disabled = currentShape !== 'scatter' || isColorAnimating;
     }
     const selectedName = document.getElementById('selected-planet-name');
-    if (selectedName) selectedName.textContent = themeNames[currentTheme] || '选择星球';
+    const selectedTheme = physicalSolar && physicalSolar.active ? physicalSolar.focusId : currentTheme;
+    if (selectedName) selectedName.textContent = themeNames[selectedTheme] || '选择星球';
     for (const option of document.querySelectorAll('[data-theme]')) {
-        option.setAttribute('aria-pressed', String(option.dataset.theme === currentTheme));
+        option.setAttribute('aria-pressed', String(option.dataset.theme === selectedTheme));
     }
 }
 
@@ -1666,6 +1693,7 @@ function viewPosition(shape) {
 
 function resetView(shape = currentShape, animated = false) {
     if (!camera) return;
+    if (physicalSolar && physicalSolar.active) { physicalSolar.resize(); return; }
     if (currentCameraTween) currentCameraTween.stop();
     const position = viewPosition(shape);
     if (scene && scene.fog) scene.fog.density = shape === 'solar_system' ? 0.004 : 0.45 / Math.hypot(position.x, position.y, position.z);
@@ -1698,6 +1726,7 @@ function setupPointerControls(canvas) {
     };
     const zoom = (amount, point = new THREE.Vector2(0, 0)) => {
         if (currentShape !== 'solar_system' || isAnimating) return;
+        if (physicalSolar && physicalSolar.active) { physicalSolar.zoom(amount); return; }
         camera.updateMatrixWorld(true);
         raycaster.setFromCamera(point, camera);
         const next = camera.position.clone().addScaledVector(raycaster.ray.direction, amount);
@@ -1732,8 +1761,11 @@ function setupPointerControls(canvas) {
             if (lastPinchDistance !== null) zoom((distance - lastPinchDistance) * 0.12);
             lastPinchDistance = distance;
         } else if (particles && !isAnimating) {
-            particles.rotation.y += (event.clientX - previous.x) * 0.005;
-            particles.rotation.x += (event.clientY - previous.y) * 0.005;
+            if (physicalSolar && physicalSolar.active) physicalSolar.orbit(event.clientX - previous.x, event.clientY - previous.y);
+            else {
+                particles.rotation.y += (event.clientX - previous.x) * 0.005;
+                particles.rotation.x += (event.clientY - previous.y) * 0.005;
+            }
         }
     });
     const endPointer = (event) => {
@@ -1853,6 +1885,7 @@ function initMediaPipe() {
 
     hands.onResults((res) => {
         if (!isCameraActive) return;
+        if (physicalSolar && physicalSolar.active) return;
         
         if (res.multiHandLandmarks && res.multiHandLandmarks.length > 0) {
             const lm = res.multiHandLandmarks[0];
@@ -2114,6 +2147,11 @@ window.addEventListener('keydown', (event) => {
 function animate() {
     requestAnimationFrame(animate);
     TWEEN.update();
+    if (physicalSolar && physicalSolar.active) {
+        physicalSolar.update();
+        renderer.render(scene, camera);
+        return;
+    }
     
     const time = Date.now() * 0.001;
     
