@@ -248,12 +248,14 @@ h2 { margin: 0; color: var(--ink); font-size: 20px; font-weight: 650; letter-spa
 }
 
 /* Physical solar system: UI markers identify subpixel bodies without enlarging geometry. */
-.solar-hud { position: fixed; top: 90px; left: 24px; z-index: 85; width: 286px; max-height: calc(100dvh - 190px); overflow: auto; touch-action: pan-y; overscroll-behavior: contain; border-radius: 28px; }
+.solar-hud { position: fixed; top: 144px; left: 24px; z-index: 85; width: 270px; max-height: calc(100dvh - 245px); overflow: auto; touch-action: pan-y; overscroll-behavior: contain; border-radius: 28px; }
+#solar-rotate { position: fixed; top: 84px; left: 24px; z-index: 86; min-height: 44px; padding: 11px 18px; font-size: 13px; font-weight: 600; }
+#solar-rotate:hover { background: rgba(255,255,255,.98); }
+#solar-rotate[aria-pressed="true"] { color: #0056b6; }
 .solar-hud > summary { padding: 20px 22px 17px; }
 .solar-eyebrow { display: block; color: #546071; font-size: 10px; letter-spacing: 1.2px; font-weight: 650; margin-bottom: 7px; }
-.solar-hud strong { display: block; font-size: 21px; color: var(--ink); letter-spacing: -.5px; }
+.solar-hud strong { display: block; font-size: 19px; color: var(--ink); letter-spacing: -.5px; }
 .solar-clock { display: block; color: #3a485b; font-size: 11px; font-variant-numeric: tabular-nums; line-height: 1.7; margin-top: 8px; }
-.solar-model-caption { display: block; margin-top: 4px; font-size: 10px; line-height: 1.6; color: #536074; }
 .solar-hud { scrollbar-width: thin; scrollbar-color: rgba(65,80,102,.35) transparent; }
 .solar-hud::-webkit-scrollbar { width: 6px; }
 .solar-hud::-webkit-scrollbar-track { background: transparent; }
@@ -277,17 +279,13 @@ h2 { margin: 0; color: var(--ink); font-size: 20px; font-weight: 650; letter-spa
 .solar-sources a { color: #0054b7; text-underline-offset: 3px; }
 .solar-error { font-size: 11px; color: #a62215; margin: 0 0 10px; }
 .solar-error:empty { display: none; }
-#solar-labels { position: fixed; inset: 0; z-index: 50; pointer-events: none; overflow: hidden; }
-#solar-labels[data-view="body"] { visibility: hidden; }
-#solar-labels svg { position: absolute; inset: 0; width: 100%; height: 100%; stroke: #c0d1e9; stroke-width: .7px; stroke-opacity: .48; fill: #d3e2f6; }
-.solar-label { position: absolute; min-height: 30px; min-width: 64px; padding: 5px 10px; border-radius: 15px; color: #f0f6ff; background: rgba(12,22,38,.86); border: 1px solid rgba(182,207,240,.25); backdrop-filter: blur(12px); font-size: 11px; line-height: 18px; white-space: nowrap; pointer-events: auto; }
-.solar-label:hover, .solar-label[aria-pressed="true"] { background: #e3edfb; color: #173257; border-color: #e3edfb; }
 .solar-active #status, .solar-active .help-control { display: none; }
 .solar-active .camera-control { opacity: .6; }
 .solar-active .camera-control::before { content: '触控探索'; font-size: 11px; }
 .solar-active .camera-control > span { display: none; }
 body:has(#planet-panel[open]) .solar-hud { visibility: hidden; }
 @media (max-width: 900px) {
+    #solar-rotate { top: 76px; left: 16px; padding: 10px 13px; font-size: 12px; }
     .solar-hud { top: auto; bottom: calc(max(20px, env(safe-area-inset-bottom)) + 72px); left: 16px; width: min(330px, calc(100vw - 32px)); max-height: calc(100dvh - 285px); }
     .solar-hud > summary { padding: 14px 18px; }
     .solar-hud strong { font-size: 18px; }
