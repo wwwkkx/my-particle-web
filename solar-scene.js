@@ -203,6 +203,9 @@
         updateLabels() {
             const width=this.canvas.clientWidth,height=this.canvas.clientHeight;
             const placed=[];
+            const reserved=[this.hud,document.querySelector('.controls-container'),document.querySelector('.scene-controls'),document.querySelector('#solar-system-btn')]
+                .filter(Boolean).map(element=>element.getBoundingClientRect()).map(rect=>({x:rect.left,y:rect.top,w:rect.width,h:rect.height}));
+            const overlaps=(a,b)=>a.x<b.x+b.w+5&&a.x+a.w+5>b.x&&a.y<b.y+b.h+5&&a.y+a.h+5>b.y;
             this.projected=[];
             for (const body of D.bodies) {
                 const label=this.labels.get(body.id),mesh=this.meshes.get(body.id);
@@ -212,13 +215,19 @@
                 if(!show)continue;
                 const x=(screen.x+1)*width/2,y=(1-screen.y)*height/2;
                 const w=body.id==='pluto'?112:64,h=30;
-                let left=Math.max(4,Math.min(width-w-4,x+12)),top=y-15;
-                for (let step=0;step<30;step++) {
-                    if(!placed.some(p=>left<p.x+p.w+5&&left+w+5>p.x&&top<p.y+p.h+5&&top+h+5>p.y))break;
-                    top=y+(step%2===0?1:-1)*(Math.floor(step/2)+1)*35-15;
+                const candidates=[];
+                for(const dx of [12,-w-12,82,-w-82,152,-w-152]) for(let step=0;step<15;step++) {
+                    const dy=step===0?0:(step%2?1:-1)*Math.ceil(step/2)*35;
+                    const candidate={x:x+dx,y:y+dy-15,w,h};
+                    if(candidate.x<4||candidate.x+w>width-4||candidate.y<4||candidate.y+h>height-4)continue;
+                    if([...reserved,...placed].some(rect=>overlaps(candidate,rect)))continue;
+                    candidates.push({...candidate,cost:dx*dx+dy*dy});
                 }
-                top=Math.max(4,Math.min(height-88-h,top));
-                placed.push({x:left,y:top,w,h});
+                candidates.sort((a,b)=>a.cost-b.cost);
+                const best=candidates[0];
+                if(!best) {label.button.hidden=true;label.line.style.display=label.dot.style.display='none';continue;}
+                const left=best.x,top=best.y;
+                placed.push(best);
                 label.button.style.left=left+'px';label.button.style.top=top+'px';
                 label.button.setAttribute('aria-pressed',String(body.id===this.focusId));
                 label.line.setAttribute('x1',x);label.line.setAttribute('y1',y);label.line.setAttribute('x2',left);label.line.setAttribute('y2',top+h/2);
