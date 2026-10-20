@@ -30,6 +30,7 @@ function environment() {
             listeners: {}, addEventListener(type, handler) { this.listeners[type] = handler; },
             pause() { this.paused = true; }, play() { this.paused = false; return Promise.resolve(); },
             load() {}, getAttribute(name) { return this[name] || null; }, readyState: 4,
+            focus() { this.focused = true; }, contains(target) { return target === this; },
         });
         return elements.get(id);
     }
@@ -41,7 +42,7 @@ function environment() {
             setFromCamera() {} intersectObjects(objects) { this.lastObjects = objects; return []; }
         }, MathUtils: {degToRad: value => value * Math.PI / 180}},
         TWEEN: {Tween, Easing: {Linear: {None: x=>x}, Cubic: {Out:x=>x}, Elastic: {Out:x=>x}}},
-        document: {getElementById:element, querySelector:element},
+        document: {getElementById:element, querySelector:element, querySelectorAll:()=>[], addEventListener(type, handler) { events['document:' + type] = handler; }},
         window: {innerWidth:1373, innerHeight:731, addEventListener(type, handler) { events[type] = handler; }},
         navigator: {mediaDevices: {getUserMedia: async () => { throw Object.assign(new Error(), {name:'NotAllowedError'}); }}},
         Hands: class {setOptions() {} onResults(callback) { this.results = callback; } send() {return Promise.resolve();}},
@@ -74,7 +75,7 @@ test('solar overview has an exit and restores the previous theme', () => {
     const e = environment();
     e.run("enterSolarSystem()"); e.finish();
     assert.equal(e.run('currentShape'), 'solar_system');
-    assert.equal(e.element('solar-system-btn').textContent, '← 返回星云');
+    assert.equal(e.element('solar-system-btn').textContent, '返回星云');
     assert.ok(e.run('camera.position.length()') > 50);
     e.run('enterSolarSystem()'); e.finish();
     assert.equal(e.run('currentShape'), 'scatter');
@@ -216,4 +217,41 @@ test('Space on a button uses the native click without triggering a second shape 
     const e = environment(); e.run('appStarted=true');
     e.events.keydown({code:'Space',key:' ',target:{closest:selector=>selector === 'button'},preventDefault(){throw Error('intercepted button');}});
     assert.equal(e.run('currentShape'), 'scatter');
+});
+
+test('selecting a planet closes the panel and restores the trigger focus', () => {
+    const e = environment();
+    e.element('planet-panel').open = true;
+    e.run("choosePlanet('venus')"); e.finish();
+    assert.equal(e.run('currentTheme'), 'venus');
+    assert.equal(e.element('planet-panel').open, false);
+    assert.equal(e.element('planet-picker-trigger').focused, true);
+    assert.equal(e.element('selected-planet-name').textContent, '金星');
+});
+
+test('Escape dismisses an open picker without changing the scene', () => {
+    const e = environment(); let stopped = false;
+    e.run("explorePlanet('earth')"); e.finish();
+    e.element('planet-panel').open = true;
+    e.element('planet-panel').listeners.keydown({key:'Escape',preventDefault(){},stopPropagation(){stopped=true;}});
+    assert.equal(stopped, true);
+    assert.equal(e.run('currentShape'), 'earth');
+    assert.equal(e.element('planet-panel').open, false);
+});
+
+test('clicking outside the picker dismisses it without stealing focus', () => {
+    const e = environment(); e.element('planet-panel').open = true;
+    e.events['document:click']({target:{}});
+    assert.equal(e.element('planet-panel').open, false);
+    assert.equal(e.element('planet-picker-trigger').focused, undefined);
+});
+
+test('the help control cannot overlap the open planet panel on small screens', () => {
+    const e = environment();
+    e.element('planet-panel').open = true;
+    e.element('planet-panel').listeners.toggle();
+    assert.equal(e.element('.help-control').hidden, true);
+    e.element('planet-panel').open = false;
+    e.element('planet-panel').listeners.toggle();
+    assert.equal(e.element('.help-control').hidden, false);
 });
