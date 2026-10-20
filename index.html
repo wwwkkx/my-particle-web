@@ -3,43 +3,41 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#080b12">
     <title>Wspace</title>
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="style.css?v=20261020-glass">
 </head>
 <body>
-
 <div id="overlay">
-    <h1>Wspace</h1>
-    <p>Explore the Universe</p>
-    <button id="start-btn" onclick="startApp()">Enter Space</button>
+    <section class="welcome-card glass" aria-labelledby="welcome-title">
+        <span class="welcome-eyebrow">INTERACTIVE UNIVERSE</span>
+        <h1 id="welcome-title">Wspace</h1>
+        <p class="welcome-description">在指尖，探索宇宙。</p>
+        <button id="start-btn" onclick="startApp()">进入宇宙 <svg class="ui-icon " viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 5 7 7-7 7"/></svg></button>
+        <p class="welcome-hint">拖动旋转 · 凝聚星球 · 随心探索</p>
+    </section>
 </div>
 
-<div id="status" role="status" aria-live="polite">系统就绪</div>
+<div id="status" class="glass" role="status" aria-live="polite">系统就绪</div>
+<audio id="bgm" loop preload="none"></audio>
 
-<!-- Audio Element -->
-<audio id="bgm" loop preload="none">
-</audio>
-
-<!-- Controls Container -->
 <div class="controls-container">
-    <!-- Music Controls -->
-    <div class="control-item music-control">
+    <section class="control-item music-control glass" aria-label="音乐控制">
         <div class="music-info">
-            <span id="music-name">🎵 Loading...</span>
+            <span class="control-label">背景音乐</span>
+            <span id="music-name">准备就绪</span>
         </div>
         <div class="music-actions">
-            <button class="icon-btn" onclick="prevSong()" title="上一首">⏮</button>
+            <button class="icon-btn" onclick="prevSong()" title="上一首" aria-label="上一首"><svg class="ui-icon " viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 5v14M18 5l-9 7 9 7Z"/></svg></button>
             <label class="switch mini">
                 <input type="checkbox" id="music-toggle" aria-label="背景音乐" onchange="toggleMusic(this)" checked>
                 <span class="slider"></span>
             </label>
-            <button class="icon-btn" onclick="nextSong()" title="下一首">⏭</button>
+            <button class="icon-btn" onclick="nextSong()" title="下一首" aria-label="下一首"><svg class="ui-icon " viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 5v14M6 5l9 7-9 7Z"/></svg></button>
         </div>
-    </div>
-
-    <!-- Camera Toggle -->
-    <div class="control-item">
-        <span>🖐️ 手势</span>
+    </section>
+    <div class="control-item camera-control glass">
+        <span>手势控制</span>
         <label class="switch">
             <input type="checkbox" id="camera-toggle" aria-label="摄像头手势控制" onchange="toggleCamera(this)">
             <span class="slider"></span>
@@ -47,48 +45,55 @@
     </div>
 </div>
 
-<!-- Solar System Button -->
-<button id="solar-system-btn" onclick="enterSolarSystem()">🌌 进入太阳系</button>
+<button id="solar-system-btn" class="glass" onclick="enterSolarSystem()">太阳系全景</button>
 
-<nav class="scene-controls" aria-label="场景控制" hidden>
-    <button id="prev-theme-btn" class="scene-btn" onclick="cycleNextTheme(-1)" aria-label="上一个主题">‹</button>
-    <button id="shape-btn" class="scene-btn" onclick="toggleShape()">✨ 凝聚</button>
-    <button id="next-theme-btn" class="scene-btn" onclick="cycleNextTheme(1)" aria-label="下一个主题">›</button>
-    <label class="picker-label" for="planet-picker">探索</label>
-    <select id="planet-picker" aria-label="选择星球或主题" onchange="if(this.value) explorePlanet(this.value)">
-        <option value="">选择星球</option>
-        <option value="sun">太阳</option><option value="mercury">水星</option>
-        <option value="venus">金星</option><option value="earth">地球</option>
-        <option value="mars">火星</option><option value="jupiter">木星</option>
-        <option value="saturn">土星</option><option value="uranus">天王星</option>
-        <option value="neptune">海王星</option><option value="pluto">冥王星</option>
-        <option value="christmas">圣诞树</option><option value="black_hole">卡冈图亚</option>
-    </select>
+<nav class="scene-controls glass" aria-label="场景控制" hidden>
+    <button id="prev-theme-btn" class="scene-btn round-btn" onclick="cycleNextTheme(-1)" aria-label="上一个主题"><svg class="ui-icon flip" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 5 7 7-7 7"/></svg></button>
+    <button id="shape-btn" class="scene-btn primary-btn" onclick="toggleShape()">凝聚</button>
+    <button id="next-theme-btn" class="scene-btn round-btn" onclick="cycleNextTheme(1)" aria-label="下一个主题"><svg class="ui-icon " viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 5 7 7-7 7"/></svg></button>
+    <details id="planet-panel" class="planet-picker">
+        <summary id="planet-picker-trigger" aria-label="选择星球或主题"><svg class="ui-icon " viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><ellipse cx="12" cy="12" rx="10" ry="5" transform="rotate(-35 12 12)"/></svg><span id="selected-planet-name">选择星球</span><svg class="ui-icon small-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></summary>
+        <section class="planet-menu glass" aria-labelledby="planet-menu-title">
+            <div class="panel-heading">
+                <div><h2 id="planet-menu-title">探索宇宙</h2><p>选择一个星球或主题</p></div>
+                <button class="icon-btn close-btn" onclick="closePlanetPanel()" aria-label="关闭星球选择"><svg class="ui-icon " viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg></button>
+            </div>
+            <div class="planet-grid">
+                <button type="button" class="planet-option" data-theme="sun" aria-pressed="false" onclick="choosePlanet('sun')"><span class="planet-dot" style="--planet-color:#ef9b34" aria-hidden="true"></span><span class="planet-option-copy"><strong>太阳</strong><small>恒星</small></span><span class="selection-mark" aria-hidden="true">✓</span></button>
+                <button type="button" class="planet-option" data-theme="mercury" aria-pressed="false" onclick="choosePlanet('mercury')"><span class="planet-dot" style="--planet-color:#7e838c" aria-hidden="true"></span><span class="planet-option-copy"><strong>水星</strong><small>类地行星</small></span><span class="selection-mark" aria-hidden="true">✓</span></button>
+                <button type="button" class="planet-option" data-theme="venus" aria-pressed="false" onclick="choosePlanet('venus')"><span class="planet-dot" style="--planet-color:#c8a568" aria-hidden="true"></span><span class="planet-option-copy"><strong>金星</strong><small>类地行星</small></span><span class="selection-mark" aria-hidden="true">✓</span></button>
+                <button type="button" class="planet-option" data-theme="earth" aria-pressed="false" onclick="choosePlanet('earth')"><span class="planet-dot" style="--planet-color:#3688c9" aria-hidden="true"></span><span class="planet-option-copy"><strong>地球</strong><small>蓝色星球</small></span><span class="selection-mark" aria-hidden="true">✓</span></button>
+                <button type="button" class="planet-option" data-theme="mars" aria-pressed="false" onclick="choosePlanet('mars')"><span class="planet-dot" style="--planet-color:#cc7659" aria-hidden="true"></span><span class="planet-option-copy"><strong>火星</strong><small>类地行星</small></span><span class="selection-mark" aria-hidden="true">✓</span></button>
+                <button type="button" class="planet-option" data-theme="jupiter" aria-pressed="false" onclick="choosePlanet('jupiter')"><span class="planet-dot" style="--planet-color:#b48b6b" aria-hidden="true"></span><span class="planet-option-copy"><strong>木星</strong><small>气态巨行星</small></span><span class="selection-mark" aria-hidden="true">✓</span></button>
+                <button type="button" class="planet-option" data-theme="saturn" aria-pressed="false" onclick="choosePlanet('saturn')"><span class="planet-dot" style="--planet-color:#bea875" aria-hidden="true"></span><span class="planet-option-copy"><strong>土星</strong><small>气态巨行星</small></span><span class="selection-mark" aria-hidden="true">✓</span></button>
+                <button type="button" class="planet-option" data-theme="uranus" aria-pressed="false" onclick="choosePlanet('uranus')"><span class="planet-dot" style="--planet-color:#6aa9b5" aria-hidden="true"></span><span class="planet-option-copy"><strong>天王星</strong><small>冰巨行星</small></span><span class="selection-mark" aria-hidden="true">✓</span></button>
+                <button type="button" class="planet-option" data-theme="neptune" aria-pressed="false" onclick="choosePlanet('neptune')"><span class="planet-dot" style="--planet-color:#536fb4" aria-hidden="true"></span><span class="planet-option-copy"><strong>海王星</strong><small>冰巨行星</small></span><span class="selection-mark" aria-hidden="true">✓</span></button>
+                <button type="button" class="planet-option" data-theme="pluto" aria-pressed="false" onclick="choosePlanet('pluto')"><span class="planet-dot" style="--planet-color:#a28a79" aria-hidden="true"></span><span class="planet-option-copy"><strong>冥王星</strong><small>矮行星</small></span><span class="selection-mark" aria-hidden="true">✓</span></button>
+                <button type="button" class="planet-option" data-theme="christmas" aria-pressed="false" onclick="choosePlanet('christmas')"><span class="planet-dot" style="--planet-color:#4f9677" aria-hidden="true"></span><span class="planet-option-copy"><strong>圣诞树</strong><small>特别主题</small></span><span class="selection-mark" aria-hidden="true">✓</span></button>
+                <button type="button" class="planet-option" data-theme="black_hole" aria-pressed="false" onclick="choosePlanet('black_hole')"><span class="planet-dot" style="--planet-color:#4c4c62" aria-hidden="true"></span><span class="planet-option-copy"><strong>卡冈图亚</strong><small>黑洞主题</small></span><span class="selection-mark" aria-hidden="true">✓</span></button>
+            </div>
+        </section>
+    </details>
 </nav>
 
 <details class="help-control" hidden>
-    <summary>操作说明</summary>
-    <div class="help-content">
-        <p>拖动旋转；在太阳系中用滚轮或双指缩放，点击行星探索。</p>
-        <p>点击「凝聚」查看当前主题；点击「返回星云」散开；「太阳系全景」重新定位。</p>
-        <p>键盘：← → 切换星云主题，空格凝聚或散开，Esc 返回星云。</p>
-        <p>手势需允许摄像头：握拳凝聚、张手散开、OK 切换主题。关闭开关即停止摄像头。</p>
-        <p>此为艺术化粒子场景，天体大小与距离不按真实比例。</p>
+    <summary class="glass"><svg class="ui-icon " viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 0 1 5 .2c0 1.8-2.5 1.8-2.5 3.8M12 17h.01"/></svg><span>操作说明</span></summary>
+    <div class="help-content glass">
+        <h2>从这里开始</h2>
+        <p><strong>旋转与缩放</strong><br>拖动旋转；在太阳系中用滚轮或双指缩放，点击行星探索。</p>
+        <p><strong>切换场景</strong><br>点击「凝聚」查看主题；「返回星云」散开；「太阳系全景」重新定位。</p>
+        <p><strong>键盘快捷键</strong><br>← → 切换星云主题，空格凝聚或散开，Esc 返回星云。</p>
+        <p><strong>手势控制</strong><br>允许摄像头后，握拳凝聚、张手散开、OK 切换主题。关闭开关即停止摄像头。</p>
+        <p class="help-note">艺术化粒子场景，天体大小与距离不按真实比例。</p>
     </div>
 </details>
 
-<div id="video-container">
-    <video id="input_video" playsinline muted></video>
-</div>
+<div id="video-container" class="glass"><video id="input_video" playsinline muted></video></div>
 
-<!-- Libraries -->
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/tween.js/18.6.4/tween.umd.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
-
-<!-- Main Logic -->
-<script src="script.js"></script>
-
+<script src="script.js?v=20261020-glass"></script>
 </body>
 </html>
 
