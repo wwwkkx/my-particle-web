@@ -77,6 +77,7 @@
                     <div class="solar-view-buttons"><button type="button" data-view="overview">全太阳系</button><button type="button" data-view="inner">内太阳系</button></div>
                     <label class="solar-field">模拟速度<select id="solar-speed" aria-label="模拟速度"><option value="0">暂停</option><option value="1">实时 · 1×</option><option value="3600">1 小时 / 秒</option><option value="86400">1 天 / 秒</option><option value="2592000">30 天 / 秒</option></select></label>
                     <label class="solar-field">日期与时间（UTC）<input id="solar-date" type="datetime-local" step="1" min="1972-01-01T00:00:00" max="2050-01-01T00:00:00"></label>
+                    <div class="solar-view-buttons"><button type="button" id="solar-apply-date">应用日期</button></div>
                     <div class="solar-view-buttons"><button type="button" id="solar-now">回到此刻 · 1×</button><button type="button" id="solar-pause">暂停</button></div>
                     <p id="solar-error" class="solar-error" role="alert"></p>
                     <dl id="solar-facts"></dl>
@@ -91,15 +92,22 @@
             this.facts=this.hud.querySelector('#solar-facts');
             this.speedInput.value='1';
             this.speedInput.addEventListener('change',()=>{this.clock.setRate(Number(this.speedInput.value));this.refreshHud(true);});
-            this.dateInput.addEventListener('change',()=>{
+            this.dateInput.addEventListener('focus',()=>{this.dateEditing=true;});
+            const applyDate=()=>{
                 try {
                     if (!this.dateInput.checkValidity() || !this.dateInput.value) throw new Error('请选择 1972–2049 年的有效 UTC 日期。');
                     this.clock.setTime(Date.parse(this.dateInput.value+'Z'));
+                    this.dateEditing=false;
                     this.refreshHud(true);
                     this.hud.querySelector('#solar-error').textContent='';
                 } catch(error) { this.hud.querySelector('#solar-error').textContent=error.message; }
+            };
+            this.hud.querySelector('#solar-apply-date').addEventListener('click',applyDate);
+            this.dateInput.addEventListener('change',applyDate);
+            this.dateInput.addEventListener('keydown',event=>{
+                if(event.key==='Enter') {event.preventDefault();applyDate();}
             });
-            this.hud.querySelector('#solar-now').addEventListener('click',()=>{this.clock.realtime();this.refreshHud(true);});
+            this.hud.querySelector('#solar-now').addEventListener('click',()=>{this.dateEditing=false;this.hud.querySelector('#solar-error').textContent='';this.clock.realtime();this.refreshHud(true);});
             this.pauseButton.addEventListener('click',()=>{this.clock.setRate(this.clock.rate ? 0 : 1);this.refreshHud(true);});
             for (const button of this.hud.querySelectorAll('[data-view]')) button.addEventListener('click',()=>this.overview(button.dataset.view==='inner'));
             this.labelLayer=document.createElement('div');
@@ -247,7 +255,7 @@
             const rate=this.clock.rate;
             const rateText=({0:'已暂停',1:'实时 1×',3600:'1 小时/秒',86400:'1 天/秒',2592000:'30 天/秒'})[rate];
             this.clockText.textContent=date.toISOString().slice(0,19).replace('T',' ')+' UTC · '+rateText;
-            if(document.activeElement!==this.dateInput)this.dateInput.value=date.toISOString().slice(0,19);
+            if(!this.dateEditing&&document.activeElement!==this.dateInput)this.dateInput.value=date.toISOString().slice(0,19);
             this.speedInput.value=String(rate);this.pauseButton.textContent=rate?'暂停':'继续 · 1×';
             if(force) {
                 this.hud.querySelector('#solar-view-name').textContent=body?'跟随 · '+body.name+(body.dwarf?'（矮行星）':''):this.mode==='inner'?'内太阳系':'太阳系全景';
