@@ -174,7 +174,7 @@
             const radius=DISPLAY[id].radius,random=seeded(id.length*7919+11);
             const seed=[...id].reduce((sum,ch)=>sum*31+ch.charCodeAt(0),7);
             const q={a:sphereNoise(seed,8,2.4),b:sphereNoise(seed+1,6,4),c:sphereNoise(seed+2,7,3.2),r:seeded(seed+3)};
-            const count=Math.round(Math.max(900,Math.min(8000,1400*radius*radius))),positions=[],colors=[];
+            const count=Math.round(Math.max(1800,Math.min(15000,3200*radius*radius))),positions=[],colors=[];
             for(let i=0;i<count;i++) {
                 const z=random()*2-1,a=random()*Math.PI*2,s=Math.sqrt(1-z*z),u=[s*Math.cos(a),z,s*Math.sin(a)],r=radius*(.975+random()*.025);
                 positions.push(u[0]*r,u[1]*r,u[2]*r);
@@ -182,7 +182,7 @@
             }
             if(id==='saturn') {
                 const scale=radius/1.5;
-                for(let i=0;i<2600;i++) {
+                for(let i=0;i<6000;i++) {
                     const source=2+1.5*Math.sqrt(random()),km=74500+(source-2)/1.5*62300,a=random()*Math.PI*2;
                     if(km>117600&&km<122200)continue; // Cassini division
                     positions.push(Math.cos(a)*source*scale,(random()-.5)*.03,Math.sin(a)*source*scale);
@@ -190,7 +190,7 @@
                     colors.push(...[.93,.84,.64].map(v=>v*shade*(.8+random()*.25)));
                 }
             }
-            const fill=this.points(positions,colors,{size:.24,solid:true});
+            const fill=this.points(positions,colors,{size:.15,solid:true});
             fill.material=mesh.material;
             mesh.add(fill);
             mesh.userData.fill=fill;
@@ -221,7 +221,7 @@
                 size:.22,map:source.material.map,vertexColors:true,
                 blending:T.AdditiveBlending,transparent:true,opacity:.95,depthWrite:false
             }):new T.PointsMaterial({
-                size:.24,map:source.material.map,vertexColors:true,
+                size:.15,map:source.material.map,vertexColors:true,
                 blending:T.NormalBlending,transparent:true,alphaTest:.28,depthWrite:true
             });
             const points=new T.Points(geometry,material);
