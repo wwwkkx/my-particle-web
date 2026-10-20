@@ -174,7 +174,7 @@
             const radius=DISPLAY[id].radius,random=seeded(id.length*7919+11);
             const seed=[...id].reduce((sum,ch)=>sum*31+ch.charCodeAt(0),7);
             const q={a:sphereNoise(seed,8,2.4),b:sphereNoise(seed+1,6,4),c:sphereNoise(seed+2,7,3.2),r:seeded(seed+3)};
-            const count=Math.round(Math.max(700,Math.min(4200,900*radius*radius))),positions=[],colors=[];
+            const count=Math.round(Math.max(900,Math.min(8000,1400*radius*radius))),positions=[],colors=[];
             for(let i=0;i<count;i++) {
                 const z=random()*2-1,a=random()*Math.PI*2,s=Math.sqrt(1-z*z),u=[s*Math.cos(a),z,s*Math.sin(a)],r=radius*(.975+random()*.025);
                 positions.push(u[0]*r,u[1]*r,u[2]*r);
@@ -190,7 +190,7 @@
                     colors.push(...[.93,.84,.64].map(v=>v*shade*(.8+random()*.25)));
                 }
             }
-            const fill=this.points(positions,colors,{size:.2,solid:true});
+            const fill=this.points(positions,colors,{size:.24,solid:true});
             fill.material=mesh.material;
             mesh.add(fill);
             mesh.userData.fill=fill;
@@ -258,7 +258,7 @@
             const body=D.byId[id];
             if(!body||!rate)return 0;
             const fast=Math.log10(870.536/1.4),value=Math.log10(Math.abs(body.spinRate)/1.4);
-            const base=Math.max(6,Math.min(30,8+22*value/fast));
+            const base=Math.max(6,Math.min(24,6+18*value/fast));
             return Math.sign(body.spinRate)*base*(SPEED_BOOST[rate]||1);
         }
         createSunGlow() {
