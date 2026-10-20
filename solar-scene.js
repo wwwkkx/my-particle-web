@@ -653,6 +653,7 @@
             if(this.viewWidth!==width||this.viewHeight!==height){this.viewWidth=width;this.viewHeight=height;this.camera.setViewOffset(width,height,0,width<=900?60:38,width,height);}
             if(this.camera.near!==.005||this.camera.far!==6000){this.camera.near=.005;this.camera.far=6000;this.camera.updateProjectionMatrix();}
             this.camera.lookAt(this.target);this.camera.updateMatrixWorld(true);
+            if(height)this.deep.adjust(scale,this.camera.position,2*Math.tan(this.camera.fov*Math.PI/360)/height);
             this.projected=[];
             if(!this.hudAt||wall-this.hudAt>200){this.refreshHud(false);this.hudAt=wall;this.hud.dataset.focus=scale;this.hud.dataset.rotate=String(this.autoRotate);}
         }
@@ -854,7 +855,7 @@
             } else {
                 const m31=X.andromeda(t),left=X.ANDROMEDA_CONTACT_MYR-t;
                 rows=`<dt>仙女座距离</dt><dd>${(m31.distanceKly/10).toFixed(0)} 万光年</dd><dt>接近速度</dt><dd>${Math.abs(m31.speedKms).toFixed(0)} km/s</dd><dt>预计首次相遇</dt><dd>${left>1?(left/100).toFixed(1)+' 亿年后':'正在相遇'}</dd><dt>大麦哲伦云</dt><dd>16.2 万光年</dd><dt>三角座星系</dt><dd>274 万光年</dd>`;
-                fact='仙女座在引力作用下加速向银河系落来（两体径向下落，越近越快）。点质量模型取 1.1×10¹² 太阳质量，使首次相遇约在 45 亿年后，与常引用的预测一致；2025 年基于 Gaia 的研究认为，100 亿年内真正合并的概率约为一半。星系自转在此视图中以展示速度显示。';
+                fact='仙女座在引力作用下加速向银河系落来（两体径向下落，越近越快）。点质量模型取 1.1×10¹² 太阳质量，使首次相遇约在 45 亿年后，与常引用的预测一致；2025 年基于 Gaia 的研究认为，100 亿年内真正合并的概率约为一半。距离为真实比例，三个旋涡星系放大 2 倍显示，星系自转以展示速度显示。';
             }
             this.facts.innerHTML=rows;
             if(this.factText)this.factText.textContent=fact;

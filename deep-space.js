@@ -26,7 +26,7 @@
         return hex({O: '#9bb0ff', B: '#aabfff', A: '#cad7ff', F: '#f8f7ff', G: '#fff1dc', K: '#ffcf96', M: '#ff9e5e'}[sp[0]] || '#ffffff');
     }
     // On-screen star radius from luminosity (ly): the Sun 0.12, Sirius ≈ 0.19, red dwarfs ≈ 0.06.
-    const starRadius = lum => Math.max(.055, Math.min(.3, .12 + .05 * Math.log10(lum)));
+    const starRadius = lum => 2.2 * Math.max(.055, Math.min(.3, .12 + .05 * Math.log10(lum)));
 
     class DeepSpace {
         constructor(THREE, parent, texture) {
@@ -78,7 +78,7 @@
             }
             const group = new this.THREE.Group();
             group.add(this.points(positions, colors, Math.max(.025, radius * .32), .85));
-            const glow = this.halo(color, radius * 7, .6);
+            const glow = this.halo(color, radius * 9, .7);
             if (glow) group.add(glow);
             return group;
         }
@@ -93,13 +93,13 @@
                 const mesh = this.starBall(radius, color, count, 900 + index * 31);
                 group.add(mesh); this.starMeshes.set(star.id, mesh);
             });
-            // Future path of each star over the next 20,000 years (straight-line space motion).
+            // Future path of each star over the next 10,000 years (straight-line space motion).
             this.starPaths = new T.Group(); group.add(this.starPaths);
             for (const star of X.STARS) {
                 if (star.id === 'sun' || /B$/.test(star.id)) continue;
                 const geometry = new T.BufferGeometry();
                 geometry.setAttribute('position', new T.BufferAttribute(new Float32Array(6), 3));
-                const line = new T.Line(geometry, new T.LineBasicMaterial({color: new T.Color(...spectralColor(star.sp)), transparent: true, opacity: .22}));
+                const line = new T.Line(geometry, new T.LineBasicMaterial({color: new T.Color(...spectralColor(star.sp)), transparent: true, opacity: .1}));
                 line.frustumCulled = false; line.userData.star = star.id; this.starPaths.add(line);
             }
             // The Oort cloud around the Sun: inner edge ~2,000 AU, outer ~100,000 AU (≈ 1.6 ly), number density ∝ r^-3.5.
@@ -111,7 +111,7 @@
                 positions.push(s * Math.cos(a) * r, z * r * flatten, s * Math.sin(a) * r);
                 const shade = .35 + random() * .5; colors.push(.6 * shade, .75 * shade, shade);
             }
-            this.oort = this.points(positions, colors, .03, .55); group.add(this.oort);
+            this.oort = this.points(positions, colors, .07, .45); group.add(this.oort);
             // A faint grid of the galactic plane, 5 ly rings, for depth.
             for (const r of [5, 10]) {
                 const ring = new Float32Array(129 * 3);
@@ -139,7 +139,7 @@
             }
             for (const [id, mesh] of this.starMeshes) mesh.position.fromArray(positions.get(id));
             for (const line of this.starPaths.children) {
-                const now = X.starPosition(line.userData.star, years), later = X.starPosition(line.userData.star, years + 20000);
+                const now = X.starPosition(line.userData.star, years), later = X.starPosition(line.userData.star, years + 10000);
                 line.geometry.attributes.position.array.set([...now, ...later]);
                 line.geometry.attributes.position.needsUpdate = true;
             }
@@ -232,7 +232,8 @@
             this.localGalaxies = [];
             const specs = {milkyway: {count: 9000, seed: 1}, m31: {count: 14000, seed: 2}, m33: {count: 4000, seed: 3}, lmc: {count: 2200, seed: 4}, smc: {count: 1200, seed: 5}};
             for (const galaxy of X.GALAXIES) {
-                const radius = galaxy.radiusKly / 10 * (galaxy.id === 'lmc' || galaxy.id === 'smc' ? 1.6 : 1);
+                // Distances are true; the three spirals are drawn 2× larger so their structure can be seen.
+                const radius = galaxy.radiusKly / 10 * (galaxy.id === 'lmc' || galaxy.id === 'smc' ? 1 : 2);
                 const parts = this.spiralGalaxy({count: specs[galaxy.id].count, radius, scale: radius * .3, barHalf: radius * (galaxy.id === 'm33' ? .08 : .25),
                     barAngle: 20, armPitch: galaxy.id === 'lmc' || galaxy.id === 'smc' ? 40 : 14, seed: specs[galaxy.id].seed, sizeFactor: .12 + radius * .012, hii: galaxy.id !== 'smc'});
                 const n = galaxy.normal, ref = Math.abs(n[1]) < .9 ? [0, 1, 0] : [1, 0, 0];
@@ -264,10 +265,26 @@
                 DeepSpace.placeDisk(parts.arms, s => s.theta - pattern, basis);
                 DeepSpace.placeDisk(parts.bar, s => s.theta - pattern * 1.4, basis);
                 if (glow) glow.position.fromArray(centre);
+                item.centre = centre;
                 if (galaxy.id === 'm31') this.m31State = m31;
             }
         }
 
+        // Keep galaxy particles about 2 px wide at any distance, dimmed by how crowded they are on screen.
+        adjust(scale, camera, perPixel) {
+            if (scale !== 'local' || !this.localGalaxies) return;
+            for (const item of this.localGalaxies) {
+                if (!item.centre) continue;
+                const d = Math.hypot(...item.centre.map((v, i) => v - [camera.x, camera.y, camera.z][i])) || 1;
+                const radiusPx = item.radius / d / perPixel, size = d * perPixel * 2;
+                for (const mesh of [item.parts.stars, item.parts.arms, item.parts.bar]) {
+                    const count = mesh.userData.items.length || 1;
+                    mesh.material.size = size;
+                    mesh.material.opacity = Math.max(.05, Math.min(.75, 2.2 * radiusPx * radiusPx / count));
+                }
+                if (item.glow) item.glow.scale.set(item.radius * 1.6, item.radius * 1.6, 1);
+            }
+        }
         setScale(scale) {
             for (const [name, group] of Object.entries(this.groups)) group.visible = name === scale;
         }
