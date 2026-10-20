@@ -179,8 +179,8 @@ h2 { margin: 0; color: var(--ink); font-size: 20px; font-weight: 650; letter-spa
 .planet-option[aria-pressed="true"] { color: #004caa; background: #e0edff; box-shadow: inset 0 0 0 1.5px #2776d6; }
 .planet-dot { display: block; flex: 0 0 22px; width: 22px; height: 22px; border-radius: 50%; background: var(--planet-color); box-shadow: inset -5px -4px 7px rgba(0, 0, 0, 0.20), inset 2px 2px 4px rgba(255, 255, 255, 0.42); }
 .planet-option-copy { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
-.planet-option strong { color: inherit; font-size: 13px; line-height: 1.3; font-weight: 600; white-space: nowrap; }
-.planet-option small { font-size: 10px; color: #535c6a; line-height: 1.3; white-space: nowrap; }
+.planet-option strong { color: inherit; font-size: 14px; line-height: 1.3; font-weight: 600; white-space: nowrap; }
+.planet-option small { font-size: 11px; color: #535c6a; line-height: 1.3; white-space: nowrap; }
 .selection-mark { visibility: hidden; margin-left: auto; font-size: 12px; color: #005cc8; }
 .planet-option[aria-pressed="true"] .selection-mark { visibility: visible; }
 .help-control { position: fixed; right: 24px; bottom: max(28px, env(safe-area-inset-bottom)); z-index: 100; }
@@ -203,8 +203,8 @@ h2 { margin: 0; color: var(--ink); font-size: 20px; font-weight: 650; letter-spa
     .control-item { padding: 12px; border-radius: 25px; }
     .music-control { gap: 6px; }
     .music-info { gap: 2px; }
-    .control-label { font-size: 10px; }
-    #music-name { font-size: 12px; line-height: 18px; }
+    .control-label { font-size: 11px; }
+    #music-name { font-size: 13px; line-height: 18px; }
     .icon-btn { width: 32px; height: 32px; padding: 6px; }
     .camera-control { min-height: 50px; }
     .camera-control > span { font-size: 12px; }
