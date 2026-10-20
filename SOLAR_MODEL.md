@@ -1,6 +1,8 @@
-# Wspace solar-system model
+# Wspace particle solar system: motion and display
 
-All sphere radii, ring radii, camera positions and orbital coordinates use **one AU-based linear scale**. No per-planet or per-axis scaling, logarithmic distances, or frame-dependent angular increments are used. AU = 149,597,870.7 km. Mean spherical radii preserve volume-equivalent size ratios; oblateness is not modeled. Camera movement magnifies a selected planet without changing any geometry.
+The scene restores the original **glowing particle planets**, including the particle Saturn rings. There are no solid planet meshes or floating name labels. Sizes and orbital spacing use an explicit **display scale** so that planets remain visible in the overview; the scene is not a true-scale distance diagram. `SolarScene.DISPLAY` lists each display radius and semimajor axis. Each orbital ellipse retains its eccentricity, inclination and date-based phase while its semimajor axis is mapped to that planet's display distance.
+
+`solar-data.js` continues to calculate astronomical positions in AU (1 AU = 149,597,870.7 km) and days. Real mean radii and heliocentric distances are shown in the optional facts panel; they are separate from the display geometry. Self-rotation, retrograde signs and orbital timing remain on the shared astronomical clock. The camera's independent slow rotation restores the original rotating view. Dragging pauses automatic camera rotation; the visible rotation button restores it.
 
 ## Primary sources
 
@@ -31,9 +33,9 @@ Propagate the mean anomaly in this single-epoch Keplerian ellipse. Accuracy degr
 
 - Default time is the client's current UTC clock at **1×**, converted to TDB for the calculations. No live astronomy API or server credentials are needed. System clock errors affect the displayed epoch.
 - One absolute wall-clock based simulation controls **both orbit and rotation**. Pause and speed changes preserve the current instant. Background-tab frame throttling does not slow the simulation. Acceleration is explicitly labeled: 1 hour, 1 day or 30 days per real second. High-speed spin may appear aliased between frames. At a date boundary the clock pauses.
-- Screen-space dots, labels and connecting lines are UI locators, **not body geometry**. True-scale terrestrial planets are subpixel at the outer-system overview. Use the inner-system view or follow a planet to see it.
-- Procedural surface colors, longitude/latitude markings and illumination are **illustrative**, not observed maps or photometrically correct rendering. The marked meridian shows modeled rotation without implying a geographic texture. All bodies are spheres. No moons, light-time, relativity, full precession/nutation or multi-body numerical perturbations are modeled.
-- The original particle-art themes remain separate from the physical solar-system view. The physical view does not inherit particle breathing, artistic scene rotation, or morph scaling.
+- Overview planets reuse the original particle positions and vertex colors, recentered into individual point clouds and enlarged for visibility. The old baked Saturn-ring tilt is removed before applying the modeled pole orientation. Ring boundaries and colors follow the original artistic template, rather than rendering the physical ring boundaries listed above. Particle glows and background stars are artistic.
+- No floating name labels or substitute locator dots are rendered. Clicking a visible planet, or using the existing planet picker, follows it. The orbit lines are optional visual guides, not physical objects. The data/time panel starts collapsed so that it does not cover the scene.
+- No moons, light-time, relativity, full precession/nutation, photometric lighting or multi-body numerical perturbations are modeled. The astronomical model does not inherit artistic particle breathing or morph scaling; the camera may orbit the scene independently without altering any calculated spin or orbital position.
 
 ## Validation
 
