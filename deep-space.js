@@ -280,7 +280,7 @@
                 for (const mesh of [item.parts.stars, item.parts.arms, item.parts.bar]) {
                     const count = mesh.userData.items.length || 1;
                     mesh.material.size = size;
-                    mesh.material.opacity = Math.max(.05, Math.min(.75, 2.2 * radiusPx * radiusPx / count));
+                    mesh.material.opacity = Math.max(.04, Math.min(.6, 1.1 * radiusPx * radiusPx / count));
                 }
                 if (item.glow) item.glow.scale.set(item.radius * 1.6, item.radius * 1.6, 1);
             }
