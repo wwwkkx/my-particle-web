@@ -78,8 +78,8 @@
         },
         mars:(n,lat,lon,q)=>{const g=q.a(n);let c=g>.2?[.48,.2,.12]:mix([.92,.42,.2],[.78,.32,.16],q.b(n)+.5);return Math.abs(lat)>1.25?[.95,.94,.92]:c;},
         jupiter:(n,lat,lon,q)=>{
-            const band=Math.sin(lat*10+q.a(n)*.9);let c=mix([.97,.9,.74],[.74,.48,.3],.5+band*.6);
-            c=mix(c,[.96,.36,.2],spot(lat,lon,-.38,0,.22,1.6)*2.2);
+            const band=Math.sin(lat*10+q.a(n)*.9);let c=mix([.98,.92,.78],[.6,.36,.2],.5+band*.75);
+            c=mix(c,[.95,.3,.16],spot(lat,lon,-.38,0,.26,1.6)*2.4);
             return mix(c,[1,1,.98],Math.max(spot(lat,lon,-.62,2.2,.08),spot(lat,lon,-.62,2.6,.08))*2);
         },
         saturn:(n,lat,lon,q)=>{const c=mix([.97,.88,.62],[.82,.68,.42],.5+.5*Math.sin(lat*8+q.a(n)*.6));return mix(c,[1,.98,.92],spot(lat,lon,.7,1.2,.14,1.8)*2);},
@@ -125,6 +125,7 @@
             for(const body of D.bodies) {
                 const mesh=this.particleBody(body,source);
                 this.paintSurface(body.id,mesh);
+                this.addSurfaceFill(body.id,mesh);
                 this.meshes.set(body.id,mesh);
                 this.group.add(mesh);
                 this.spinPhase.set(body.id,D.spinAngle(body.id,D.J2000));
@@ -150,16 +151,49 @@
             this.createInterface();
             this.createLabels();
         }
-        points(positions,colors,{size=.12,opacity=.9}={}) {
+        points(positions,colors,{size=.12,opacity=.9,solid=false}={}) {
             const T=this.THREE,geometry=new T.BufferGeometry();
             geometry.setAttribute('position',new T.Float32BufferAttribute(positions,3));
             geometry.setAttribute('color',new T.Float32BufferAttribute(colors,3));
-            const points=new T.Points(geometry,new T.PointsMaterial({
+            const points=new T.Points(geometry,solid?this.solidMaterial(size):new T.PointsMaterial({
                 size,map:this.texture,vertexColors:true,transparent:true,opacity,
                 blending:T.AdditiveBlending,depthWrite:false
             }));
             points.frustumCulled=false;
             return points;
+        }
+        // Depth-tested particles: the near hemisphere hides the far one, so surface features read clearly.
+        solidMaterial(size) {
+            const T=this.THREE;
+            return new T.PointsMaterial({size,map:this.texture,vertexColors:true,transparent:true,alphaTest:.28,depthWrite:true,blending:T.NormalBlending});
+        }
+        // Extra surface particles so each globe looks continuous; children of the body, so they spin with it.
+        addSurfaceFill(id,mesh) {
+            const paint=SURFACES[id];
+            if(!paint||id==='sun')return;
+            const radius=DISPLAY[id].radius,random=seeded(id.length*7919+11);
+            const seed=[...id].reduce((sum,ch)=>sum*31+ch.charCodeAt(0),7);
+            const q={a:sphereNoise(seed,8,2.4),b:sphereNoise(seed+1,6,4),c:sphereNoise(seed+2,7,3.2),r:seeded(seed+3)};
+            const count=Math.round(Math.max(700,Math.min(4200,900*radius*radius))),positions=[],colors=[];
+            for(let i=0;i<count;i++) {
+                const z=random()*2-1,a=random()*Math.PI*2,s=Math.sqrt(1-z*z),u=[s*Math.cos(a),z,s*Math.sin(a)],r=radius*(.975+random()*.025);
+                positions.push(u[0]*r,u[1]*r,u[2]*r);
+                colors.push(...paint(u,Math.asin(u[1]),Math.atan2(u[2],u[0]),q));
+            }
+            if(id==='saturn') {
+                const scale=radius/1.5;
+                for(let i=0;i<2600;i++) {
+                    const source=2+1.5*Math.sqrt(random()),km=74500+(source-2)/1.5*62300,a=random()*Math.PI*2;
+                    if(km>117600&&km<122200)continue; // Cassini division
+                    positions.push(Math.cos(a)*source*scale,(random()-.5)*.03,Math.sin(a)*source*scale);
+                    const shade=km<92000?.45:km<117600?.95:.75;
+                    colors.push(...[.93,.84,.64].map(v=>v*shade*(.8+random()*.25)));
+                }
+            }
+            const fill=this.points(positions,colors,{size:.2,solid:true});
+            fill.material=mesh.material;
+            mesh.add(fill);
+            mesh.userData.fill=fill;
         }
         particleBody(body,source) {
             const T=this.THREE,display=DISPLAY[body.id],positions=[],colors=[];
@@ -182,9 +216,13 @@
             geometry.setAttribute('position',new T.Float32BufferAttribute(positions,3));
             geometry.setAttribute('color',new T.Float32BufferAttribute(colors,3));
             geometry.computeBoundingSphere();
-            const material=new T.PointsMaterial({
-                size:body.id==='sun'?.22:.18,map:source.material.map,vertexColors:true,
+            // The sun keeps its additive glow; planets are solid so their surfaces read clearly.
+            const material=body.id==='sun'?new T.PointsMaterial({
+                size:.22,map:source.material.map,vertexColors:true,
                 blending:T.AdditiveBlending,transparent:true,opacity:.95,depthWrite:false
+            }):new T.PointsMaterial({
+                size:.24,map:source.material.map,vertexColors:true,
+                blending:T.NormalBlending,transparent:true,alphaTest:.28,depthWrite:true
             });
             const points=new T.Points(geometry,material);
             points.frustumCulled=false;
@@ -253,7 +291,7 @@
                     if(moon.id==='io'&&random()>.86)shade*=1.35;
                     colors.push(...moon.color.map(v=>Math.min(1,v*shade)));
                 }
-                const mesh=this.points(positions,colors,{size:display.radius<.15?.1:.14,opacity:.95});
+                const mesh=this.points(positions,colors,{size:display.radius<.15?.12:.17,solid:true});
                 const pivot=new T.Group(),ring=new T.BufferGeometry(),ringPoints=new Float32Array(97*3);
                 for(let i=0;i<=96;i++){const t=i/96*Math.PI*2;ringPoints.set([Math.cos(t)*display.orbit,0,-Math.sin(t)*display.orbit],i*3);}
                 ring.setAttribute('position',new T.BufferAttribute(ringPoints,3));
@@ -286,9 +324,9 @@
                 return [positions,colors];
             };
             const [aPos,aCol]=belt(2600,2.15,3.35,.18,[.78,.7,.6],9);
-            this.asteroids=this.points(aPos,aCol,{size:.08,opacity:.6});
-            const [kPos,kCol]=belt(2600,30.5,48,.6,[.55,.68,.95],12);
-            this.kuiper=this.points(kPos,kCol,{size:.09,opacity:.35});
+            this.asteroids=this.points(aPos,aCol,{size:.17,opacity:.8});
+            const [kPos,kCol]=belt(3000,30.5,48,.6,[.55,.68,.95],12);
+            this.kuiper=this.points(kPos,kCol,{size:.22,opacity:.5});
             this.group.add(this.asteroids);this.group.add(this.kuiper);
         }
         createComet() {
