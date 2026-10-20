@@ -204,3 +204,16 @@ test('keyboard shortcuts leave focused form controls alone', () => {
     e.events.keydown({key:'Escape',target:{closest:()=>true}, preventDefault(){throw Error('intercepted control');}});
     assert.equal(e.run('currentShape'), 'scatter');
 });
+
+test('Escape returns from solar mode when an ordinary button retains focus', () => {
+    const e = environment(); e.run('appStarted=true; enterSolarSystem()'); e.finish();
+    e.events.keydown({key:'Escape',target:{closest:selector=>selector === 'button'},preventDefault(){}});
+    e.finish();
+    assert.equal(e.run('currentShape'), 'scatter');
+});
+
+test('Space on a button uses the native click without triggering a second shape change', () => {
+    const e = environment(); e.run('appStarted=true');
+    e.events.keydown({code:'Space',key:' ',target:{closest:selector=>selector === 'button'},preventDefault(){throw Error('intercepted button');}});
+    assert.equal(e.run('currentShape'), 'scatter');
+});
