@@ -245,3 +245,13 @@ test('clicking outside the picker dismisses it without stealing focus', () => {
     assert.equal(e.element('planet-panel').open, false);
     assert.equal(e.element('planet-picker-trigger').focused, undefined);
 });
+
+test('the help control cannot overlap the open planet panel on small screens', () => {
+    const e = environment();
+    e.element('planet-panel').open = true;
+    e.element('planet-panel').listeners.toggle();
+    assert.equal(e.element('.help-control').hidden, true);
+    e.element('planet-panel').open = false;
+    e.element('planet-panel').listeners.toggle();
+    assert.equal(e.element('.help-control').hidden, false);
+});
