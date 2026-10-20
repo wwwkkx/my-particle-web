@@ -311,3 +311,97 @@ input:checked + .slider:before {
     transform: translateY(-1px);
     box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
 }
+
+/* Keep controls readable and reachable across viewport sizes. */
+[hidden] { display: none !important; }
+body > canvas { display: block; touch-action: none; cursor: grab; }
+button, select, summary { -webkit-tap-highlight-color: transparent; }
+button:focus-visible, select:focus-visible, summary:focus-visible,
+.switch:has(input:focus-visible) {
+    outline: 2px solid #82d9ff;
+    outline-offset: 4px;
+}
+button:disabled { opacity: 0.45; cursor: default; }
+#music-name { animation: none; padding-left: 0; max-width: 160px; overflow: hidden; text-overflow: ellipsis; vertical-align: middle; }
+#status { left: 180px; right: 200px; width: auto; }
+.scene-controls {
+    position: fixed;
+    left: 50%;
+    bottom: max(20px, env(safe-area-inset-bottom));
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px;
+    border: 1px solid rgba(255,255,255,0.18);
+    border-radius: 28px;
+    background: rgba(18,22,30,0.85);
+    backdrop-filter: blur(14px);
+    z-index: 60;
+    white-space: nowrap;
+}
+.scene-btn, #planet-picker {
+    min-height: 44px;
+    border: 1px solid rgba(255,255,255,0.16);
+    border-radius: 22px;
+    padding: 8px 12px;
+    color: #fff;
+    background: rgba(255,255,255,0.08);
+    font: inherit;
+    font-size: 13px;
+    cursor: pointer;
+}
+#prev-theme-btn, #next-theme-btn { min-width: 44px; font-size: 24px; line-height: 1; }
+.picker-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+#planet-picker { width: 124px; color-scheme: dark; }
+.help-control {
+    position: fixed;
+    right: 20px;
+    bottom: max(24px, env(safe-area-inset-bottom));
+    z-index: 70;
+    color: #eee;
+    font-size: 13px;
+}
+.help-control summary { cursor: pointer; padding: 12px; border-radius: 22px; background: rgba(28,32,40,0.9); }
+.help-content {
+    position: absolute;
+    right: 0;
+    bottom: 52px;
+    width: min(310px, calc(100vw - 48px));
+    max-height: min(400px, 65dvh);
+    overflow: auto;
+    padding: 16px;
+    box-sizing: border-box;
+    border: 1px solid rgba(255,255,255,0.18);
+    border-radius: 16px;
+    background: rgba(16,20,28,0.97);
+}
+.help-content p { margin: 0 0 12px; font-size: 13px; line-height: 1.7; letter-spacing: 0; text-transform: none; color: #ddd; }
+.help-content p:last-child { margin-bottom: 0; }
+#video-container { bottom: 95px; }
+@media (max-width: 640px) {
+    h1 { font-size: 3.5rem; }
+    #overlay > p { font-size: 0.9rem; }
+    .controls-container { top: max(12px, env(safe-area-inset-top)); right: 12px; gap: 8px; }
+    .control-item { padding: 8px 12px; gap: 8px; }
+    .music-control { padding: 10px 12px; gap: 4px; }
+    #music-name { max-width: 122px; }
+    .icon-btn { min-width: 32px; min-height: 32px; }
+    #solar-system-btn { top: max(12px, env(safe-area-inset-top)); left: 12px; padding: 12px; }
+    #status { top: 164px; left: 16px; right: 16px; font-size: 13px; line-height: 1.6; }
+    .scene-controls { gap: 4px; padding: 5px; max-width: calc(100vw - 20px); box-sizing: border-box; }
+    .scene-btn, #planet-picker { padding: 8px; font-size: 12px; }
+    #planet-picker { width: 104px; }
+    #shape-btn { min-width: 98px; }
+    .help-control { bottom: calc(max(20px, env(safe-area-inset-bottom)) + 68px); right: 12px; }
+    #video-container { width: 120px; height: 90px; right: 12px; bottom: 148px; }
+}
+@media (max-height: 500px) and (min-width: 641px) {
+    #status { top: 20px; font-size: 12px; }
+    .controls-container { top: 10px; right: 12px; gap: 4px; }
+    #video-container { width: 120px; height: 90px; }
+}
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation: none !important; transition-duration: 0.01ms !important; }
+}
+

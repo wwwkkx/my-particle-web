@@ -6,6 +6,21 @@ let currentShape = 'scatter';
 let currentTheme = 'christmas'; // 'christmas' | 'pluto'
 let isAnimating = false;
 let isColorAnimating = false;
+let currentColorTween = null;
+let currentCameraTween = null;
+let currentMorphTween = null;
+let themeBeforeSolar = 'christmas';
+let appStarted = false;
+
+const themeNames = {
+    sun: '太阳', mercury: '水星', venus: '金星', earth: '地球', mars: '火星',
+    jupiter: '木星', saturn: '土星', uranus: '天王星', neptune: '海王星',
+    pluto: '冥王星', christmas: '圣诞树', black_hole: '卡冈图亚'
+};
+
+function shapeForTheme(theme = currentTheme) {
+    return theme === 'christmas' ? 'tree' : theme;
+}
 const PARTICLE_COUNT = 15000; 
 const STAR_PARTICLE_COUNT = 500; 
 const TREE_PARTICLE_COUNT = PARTICLE_COUNT - STAR_PARTICLE_COUNT;
@@ -40,7 +55,9 @@ const solarSystemPlanets = [
 ];
 
 function getIntersectedPlanet(normalizedMouse) {
-    if (currentShape !== 'solar_system') return null;
+    if (currentShape !== 'solar_system' || isAnimating || !particles) return null;
+    particles.updateMatrixWorld(true);
+    camera.updateMatrixWorld(true);
     
     raycaster.setFromCamera(normalizedMouse, camera);
     
@@ -226,175 +243,7 @@ function initThree() {
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     document.body.appendChild(renderer.domElement);
 
-    // Mouse Controls
-    renderer.domElement.addEventListener('mousedown', (e) => {
-        isMouseDragging = true;
-        previousMousePosition = { x: e.clientX, y: e.clientY };
-        clickStartTime = Date.now();
-        clickStartPos = { x: e.clientX, y: e.clientY };
-    });
-
-    renderer.domElement.addEventListener('mousemove', (e) => {
-        // Solar System Hover Logic
-        if (currentShape === 'solar_system' && !isMouseDragging) {
-             mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
-             mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
-             
-             const planet = getIntersectedPlanet(mouse);
-             document.body.style.cursor = planet ? 'pointer' : 'default';
-        } else {
-             if (!isMouseDragging) document.body.style.cursor = 'default';
-        }
-
-        if (isMouseDragging) {
-            const deltaMove = {
-                x: e.clientX - previousMousePosition.x,
-                y: e.clientY - previousMousePosition.y
-            };
-
-            const rotationSpeed = 0.005;
-            particles.rotation.y += deltaMove.x * rotationSpeed;
-            particles.rotation.x += deltaMove.y * rotationSpeed;
-
-            previousMousePosition = { x: e.clientX, y: e.clientY };
-        }
-    });
-
-    window.addEventListener('mouseup', (e) => {
-        isMouseDragging = false;
-        
-        // Click Detection
-    const timeDiff = Date.now() - clickStartTime;
-    const distDiff = Math.hypot(e.clientX - clickStartPos.x, e.clientY - clickStartPos.y);
-    
-    if (timeDiff < 300 && distDiff < 15) { // Increased threshold to 15px for stability
-            // It's a click!
-            
-            // Check Raycast
-            mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
-            mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
-            
-            raycaster.setFromCamera(mouse, camera);
-            
-            // 1. Check Arrows
-            raycaster.params.Points.threshold = 0.5; 
-            const arrowIntersects = raycaster.intersectObjects([leftArrow, rightArrow]);
-            
-            if (arrowIntersects.length > 0) {
-                const obj = arrowIntersects[0].object;
-                if (obj.name === 'next_theme') cycleNextTheme(1);
-                else if (obj.name === 'prev_theme') cycleNextTheme(-1);
-                return;
-            } 
-            
-            // 2. Check Solar System Planets (Only in Solar System Mode)
-    if (currentShape === 'solar_system') {
-        const selectedPlanet = getIntersectedPlanet(mouse);
-        
-        if (selectedPlanet) {
-            // Check if theme exists
-            if (['sun', 'mercury', 'venus', 'earth', 'mars', 'jupiter', 'saturn', 'uranus', 'neptune', 'pluto', 'christmas'].includes(selectedPlanet)) {
-                
-                // Special case for tree
-                if (selectedPlanet === 'christmas') {
-                    changeTheme('christmas');
-                    morph('tree');
-                    updateStatusText("🎄 切换主题：圣诞树");
-                } else {
-                    changeTheme(selectedPlanet);
-                    morph(selectedPlanet);
-                    // Map english name to chinese for status text
-                    const map = {
-                        'sun': '太阳', 'mercury': '水星', 'venus': '金星', 'earth': '地球', 'mars': '火星',
-                        'jupiter': '木星', 'saturn': '土星', 'uranus': '天王星', 'neptune': '海王星', 'pluto': '冥王星'
-                    };
-                    updateStatusText(`🚀 进入星球：${map[selectedPlanet]}`);
-                }
-            }
-        }
-    }
-}
-});
-
-    // Wheel Control
-    renderer.domElement.addEventListener('wheel', (e) => {
-        e.preventDefault();
-        
-        if (isAnimating) return;
-
-        // Solar System Zoom Logic
-        if (currentShape === 'solar_system') {
-            // Update mouse coordinates for raycaster
-            mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
-            mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
-            
-            raycaster.setFromCamera(mouse, camera);
-            const direction = raycaster.ray.direction.clone();
-            
-            // Zoom parameters
-            const zoomSpeed = 2.0; 
-            const maxDistance = 100.0; // Max distance from origin to prevent getting lost
-            
-            // Scroll UP (deltaY < 0) -> Zoom IN -> Move along ray direction
-            // Scroll DOWN (deltaY > 0) -> Zoom OUT -> Move opposite to ray direction
-            const zoomDir = e.deltaY > 0 ? -1 : 1; 
-            
-            // Calculate new position
-            const targetPos = camera.position.clone().addScaledVector(direction, zoomDir * zoomSpeed);
-            
-            // Only constrain max distance from center to avoid lost in space
-            // Allow zooming in as close as desired (relies on camera.near = 0.01)
-            const dist = targetPos.length();
-            
-            if (dist < maxDistance) {
-                 camera.position.copy(targetPos);
-            }
-            
-            return;
-        }
-
-        if (e.deltaY > 0) {
-            // Scroll Down -> Scatter
-            if (currentShape !== 'scatter') {
-                morph('scatter');
-                updateStatusText("✨ 鼠标滑轮：自由星云模式");
-            }
-        } else {
-            // Scroll Up -> Summon
-            let targetShape = 'tree';
-            if (currentTheme === 'pluto') targetShape = 'pluto';
-            else if (currentTheme === 'uranus') targetShape = 'uranus';
-            else if (currentTheme === 'sun') targetShape = 'sun';
-            else if (currentTheme === 'mercury') targetShape = 'mercury';
-            else if (currentTheme === 'venus') targetShape = 'venus';
-            else if (currentTheme === 'mars') targetShape = 'mars';
-            else if (currentTheme === 'earth') targetShape = 'earth';
-            else if (currentTheme === 'jupiter') targetShape = 'jupiter';
-            else if (currentTheme === 'saturn') targetShape = 'saturn';
-            else if (currentTheme === 'neptune') targetShape = 'neptune';
-            else if (currentTheme === 'black_hole') targetShape = 'black_hole';
-            
-            if (currentShape !== targetShape) {
-                morph(targetShape);
-                
-                let text = "";
-                if (currentTheme === 'christmas') text = "🎄 鼠标滑轮：召唤圣诞树";
-                else if (currentTheme === 'pluto') text = "🪐 鼠标滑轮：召唤冥王星";
-                else if (currentTheme === 'uranus') text = "❄️ 鼠标滑轮：召唤天王星";
-                else if (currentTheme === 'sun') text = "☀️ 鼠标滑轮：召唤太阳";
-                else if (currentTheme === 'mercury') text = "🌑 鼠标滑轮：召唤水星";
-                else if (currentTheme === 'venus') text = "🌕 鼠标滑轮：召唤金星";
-                else if (currentTheme === 'mars') text = "🔴 鼠标滑轮：召唤火星";
-                else if (currentTheme === 'earth') text = "🌍 鼠标滑轮：召唤地球";
-                else if (currentTheme === 'jupiter') text = "🟠 鼠标滑轮：召唤木星";
-                else if (currentTheme === 'saturn') text = "🪐 鼠标滑轮：召唤土星";
-                else if (currentTheme === 'neptune') text = "🔵 鼠标滑轮：召唤海王星";
-                else if (currentTheme === 'black_hole') text = "⚫ 鼠标滑轮：召唤卡冈图亚";
-                
-                updateStatusText(text);
-            }
-        }
-    }, { passive: false });
+    setupPointerControls(renderer.domElement);
 
     const geo = new THREE.BufferGeometry();
     const positions = new Float32Array(PARTICLE_COUNT * 3);
@@ -1210,6 +1059,7 @@ geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
 let countdownParticles;
 let fireworksParticles = [];
 let textCanvas, textCtx;
+let lastCountdownText = '';
 
 function createCountdownParticles() {
     // 1. Setup Canvas for Text
@@ -1242,6 +1092,7 @@ function createCountdownParticles() {
     });
     
     countdownParticles = new THREE.Points(geo, mat);
+    countdownParticles.frustumCulled = false;
     // Add to the main particles group if possible, or scene?
     // If we add to scene, it rotates with camera if we rotate camera? No.
     // The main 'particles' object is rotated in animate().
@@ -1269,6 +1120,8 @@ function updateCountdownParticles(text) {
     }
     
     countdownParticles.visible = true;
+    if (text === lastCountdownText) return;
+    lastCountdownText = text;
     
     // Draw Text
     textCtx.clearRect(0, 0, textCanvas.width, textCanvas.height);
@@ -1357,12 +1210,13 @@ function updateCountdownParticles(text) {
 
 function hideCountdownParticles() {
     if (countdownParticles) countdownParticles.visible = false;
-    // Also clear fireworks
-    if (fireworksParticles.length > 0) {
-        // Just hide them? Or remove.
-        // Let's rely on updateFireworks cleaning them up or hiding logic.
-        // For simplicity, we won't render fireworks if not Christmas Day in loop.
+    for (const firework of fireworksParticles) {
+        scene.remove(firework.mesh);
+        firework.mesh.geometry.dispose();
+        if (firework.mesh.material.map) firework.mesh.material.map.dispose();
+        firework.mesh.material.dispose();
     }
+    fireworksParticles.length = 0;
 }
 
 // --- Fireworks System ---
@@ -1381,6 +1235,9 @@ function updateFireworks(time) {
             fw.mesh.visible = false;
             // Recycle or remove?
             scene.remove(fw.mesh);
+            fw.mesh.geometry.dispose();
+            if (fw.mesh.material.map) fw.mesh.material.map.dispose();
+            fw.mesh.material.dispose();
             fireworksParticles.splice(i, 1);
         }
     }
@@ -1594,79 +1451,54 @@ function updateArrowPositions() {
 }
 
 function changeTheme(newTheme) {
-    if (currentTheme === newTheme || isColorAnimating) return;
+    if (!particles || (currentTheme === newTheme && !isColorAnimating)) return;
+    if (currentColorTween) currentColorTween.stop();
     currentTheme = newTheme;
     isColorAnimating = true;
-    
-    // No Warp, just color fade
-    let targetColors;
-    if (newTheme === 'christmas') targetColors = christmasColors;
-    else if (newTheme === 'pluto') targetColors = plutoColors;
-    else if (newTheme === 'uranus') targetColors = uranusColors;
-    else if (newTheme === 'sun') targetColors = sunColors;
-    else if (newTheme === 'mercury') targetColors = mercuryColors;
-    else if (newTheme === 'venus') targetColors = venusColors;
-    else if (newTheme === 'mars') targetColors = marsColors;
-    else if (newTheme === 'earth') targetColors = earthColors;
-    else if (newTheme === 'jupiter') targetColors = jupiterColors;
-    else if (newTheme === 'saturn') targetColors = saturnColors;
-    else if (newTheme === 'neptune') targetColors = neptuneColors;
-    else if (newTheme === 'black_hole') targetColors = blackHoleColors;
-    else if (newTheme === 'solar_system') targetColors = solarSystemColors;
-    else targetColors = christmasColors;
 
+    const palettes = {
+        christmas: christmasColors, pluto: plutoColors, uranus: uranusColors,
+        sun: sunColors, mercury: mercuryColors, venus: venusColors,
+        mars: marsColors, earth: earthColors, jupiter: jupiterColors,
+        saturn: saturnColors, neptune: neptuneColors,
+        black_hole: blackHoleColors, solar_system: solarSystemColors
+    };
+    const targetColors = palettes[newTheme] || christmasColors;
     const currentColors = particles.geometry.attributes.color.array;
-
-    new TWEEN.Tween({ t: 0 })
-        .to({ t: 1 }, 1000) // 1 second fade
+    const startColors = currentColors.slice();
+    currentColorTween = new TWEEN.Tween({ t: 0 })
+        .to({ t: 1 }, 1000)
         .easing(TWEEN.Easing.Linear.None)
-        .onUpdate((obj) => {
-            // Simple linear interpolation
-            const alpha = 0.1; // Convergence speed
-            for (let i = 0; i < PARTICLE_COUNT * 3; i++) {
-                currentColors[i] += (targetColors[i] - currentColors[i]) * alpha;
+        .onUpdate(({ t }) => {
+            for (let i = 0; i < currentColors.length; i++) {
+                currentColors[i] = startColors[i] + (targetColors[i] - startColors[i]) * t;
             }
             particles.geometry.attributes.color.needsUpdate = true;
         })
         .onComplete(() => {
-            // Snap to final
-            for (let i = 0; i < PARTICLE_COUNT * 3; i++) {
-                currentColors[i] = targetColors[i];
-            }
+            currentColors.set(targetColors);
             particles.geometry.attributes.color.needsUpdate = true;
             isColorAnimating = false;
+            currentColorTween = null;
+            updateSceneControls();
         })
         .start();
 }
 
 function morph(targetType) {
-    if (isAnimating || currentShape === targetType) return;
+    if (!particles || currentShape === targetType) return;
+    if (currentMorphTween) currentMorphTween.stop();
+    if (targetType === 'scatter' && currentTheme === 'solar_system') {
+        changeTheme(themeBeforeSolar);
+    }
+    if (targetType !== 'tree') hideCountdownParticles();
     
     // Immediate state update to handle UI logic during transition
     currentShape = targetType;
     isAnimating = true;
 
-    // Reset Camera Position when switching themes
-    // This ensures other themes have fixed view, and resets zoom when leaving/entering
-    if (camera) {
-        new TWEEN.Tween(camera.position)
-            .to({ x: 0, y: 2, z: 12 }, 1500)
-            .easing(TWEEN.Easing.Cubic.Out)
-            .start();
-        
-        // Also ensure we are looking at center? 
-        // The controls are simple, so looking at 0,0,0 is implied by the setup if we reset to 0,2,12
-        // But since we modified position with zoom, let's just let it be. 
-        // 0,2,12 looks at 0,0,0 naturally in our initThree setup? 
-        // Actually initThree did camera.lookAt(0,0,0). 
-        // If we only move camera, the rotation doesn't auto-update to look at 0,0,0 unless we tell it.
-        // But our zoom logic translated camera without rotating it.
-        // So the camera is still pointing "forward" (negative Z usually).
-        // If we move to 0,2,12, and camera rotation was never changed (only position), it should be fine.
-        // But to be safe, let's re-orient.
-        // We can't tween lookAt easily with just position tween. 
-        // Let's just trust that we didn't rotate the camera.
-    }
+    resetView(targetType, true);
+    if (targetType === 'solar_system') particles.rotation.set(0, 0, 0);
 
     // Toggle Arrows
     if (leftArrow && rightArrow) {
@@ -1695,12 +1527,7 @@ function morph(targetType) {
     else if (targetType === 'solar_system') targetData = solarSystemPos;
     else targetData = scatterPos;
 
-    // Button Visibility Logic
-    const ssBtn = document.getElementById('solar-system-btn');
-    if (ssBtn) {
-        if (targetType === 'scatter') ssBtn.style.display = 'block';
-        else ssBtn.style.display = 'none';
-    }
+    updateSceneControls();
 
     // Rotation Logic: Stop rotation in Solar System mode
     if (targetType === 'solar_system') {
@@ -1712,46 +1539,196 @@ function morph(targetType) {
     const currentData = particles.geometry.attributes.position.array;
     
     // Using a simpler tween approach
-    const duration = 2000;
+    const duration = 1600;
+    const startData = currentData.slice();
     
     currentMorphTween = new TWEEN.Tween({ t: 0 })
         .to({ t: 1 }, duration)
         .easing(TWEEN.Easing.Elastic.Out) // Bouncy effect for fun
         .onUpdate((obj) => {
-            // We interpolate manually because we are updating a BufferAttribute array
-            // Optimization: We could just interpolate a global 'mix' factor if using shaders,
-            // but for JS CPU morphing, we do this:
-            
-            // To make it smoother, we just move towards target.
-            // The easing is applied to 'obj.t' but we are doing iterative convergence in the original code.
-            // Let's change to direct interpolation based on 'obj.t' for better control.
-            
-            // However, iterating 45000 items in JS every frame is heavy.
-            // We'll stick to the "convergence" method but tuned, or use a sample.
-            
-            // Let's use the convergence method from original code but optimized loop?
-            // No, direct interpolation is more predictable if we have 'start' and 'end'.
-            // But we don't store 'start' state easily without copying the whole array.
-            // So convergence is memory efficient.
-            
-            const speed = 0.15; // Convergence speed
-            for (let i = 0; i < PARTICLE_COUNT * 3; i++) {
-                currentData[i] += (targetData[i] - currentData[i]) * speed;
+            for (let i = 0; i < currentData.length; i++) {
+                currentData[i] = startData[i] + (targetData[i] - startData[i]) * obj.t;
             }
+
+
             particles.geometry.attributes.position.needsUpdate = true;
         })
         .onComplete(() => {
+            currentData.set(targetData);
+            particles.geometry.attributes.position.needsUpdate = true;
             currentShape = targetType;
             isAnimating = false;
+            updateSceneControls();
             currentMorphTween = null;
         })
         .start();
 }
 
 function enterSolarSystem() {
+    if (!particles) return;
+    if (currentShape === 'solar_system') {
+        returnToScatter();
+        return;
+    }
+    if (currentTheme !== 'solar_system') themeBeforeSolar = currentTheme;
     changeTheme('solar_system');
     morph('solar_system');
-    updateStatusText("🌌 进入太阳系模式：点击行星探索");
+    updateStatusText('🌌 太阳系全景：点击行星探索 · 双指或滚轮缩放');
+}
+
+function returnToScatter() {
+    morph('scatter');
+    updateStatusText('✨ 自由星云：左右切换主题，点击「凝聚」查看');
+}
+
+function toggleShape() {
+    if (currentShape !== 'scatter') {
+        returnToScatter();
+        return;
+    }
+    morph(shapeForTheme());
+    updateStatusText('✨ ' + themeNames[currentTheme] + ' · 拖动旋转');
+}
+
+function explorePlanet(name) {
+    if (!Object.hasOwn(themeNames, name)) return;
+    changeTheme(name);
+    morph(shapeForTheme(name));
+    updateStatusText('🚀 正在探索：' + themeNames[name] + ' · 拖动旋转');
+}
+
+function updateSceneControls() {
+    const solarButton = document.getElementById('solar-system-btn');
+    if (solarButton) {
+        solarButton.style.display = 'block';
+        solarButton.textContent = currentShape === 'solar_system' ? '← 返回星云' : '🌌 太阳系全景';
+    }
+    const shapeButton = document.getElementById('shape-btn');
+    if (shapeButton) shapeButton.textContent = currentShape === 'scatter' ? '✨ 凝聚' : '✨ 返回星云';
+    for (const id of ['prev-theme-btn', 'next-theme-btn']) {
+        const button = document.getElementById(id);
+        if (button) button.disabled = currentShape !== 'scatter' || isColorAnimating;
+    }
+    const picker = document.getElementById('planet-picker');
+    if (picker) picker.value = Object.hasOwn(themeNames, currentTheme) ? currentTheme : '';
+}
+
+function viewPosition(shape) {
+    if (shape === 'scatter') return { x: 0, y: 2, z: 12 };
+    const halfVertical = THREE.MathUtils.degToRad(camera.fov) / 2;
+    const halfHorizontal = Math.atan(Math.tan(halfVertical) * camera.aspect);
+    const halfFov = Math.min(halfVertical, halfHorizontal);
+    const radii = { solar_system: 33, tree: 16, sun: 6, mercury: 3.3, venus: 3.5,
+        earth: 7.3, mars: 3.5, jupiter: 6.1, saturn: 11.4,
+        uranus: 10.4, neptune: 4, pluto: 4.7, black_hole: 15.5 };
+    const distance = Math.max(12, (radii[shape] || 12) * 1.12 / Math.sin(halfFov));
+    return shape === 'solar_system'
+        ? { x: 0, y: distance * 0.65, z: distance * Math.sqrt(1 - 0.65 ** 2) }
+        : { x: 0, y: distance * 0.1, z: distance * Math.sqrt(0.99) };
+}
+
+function resetView(shape = currentShape, animated = false) {
+    if (!camera) return;
+    if (currentCameraTween) currentCameraTween.stop();
+    const position = viewPosition(shape);
+    if (scene && scene.fog) scene.fog.density = shape === 'solar_system' ? 0.004 : 0.45 / Math.hypot(position.x, position.y, position.z);
+    if (animated) {
+        currentCameraTween = new TWEEN.Tween(camera.position)
+            .to(position, 1000).easing(TWEEN.Easing.Cubic.Out)
+            .onUpdate(() => camera.lookAt(0, 0, 0))
+            .onComplete(() => { currentCameraTween = null; updateArrowPositions(); })
+            .start();
+    } else {
+        camera.position.set(position.x, position.y, position.z);
+        camera.lookAt(0, 0, 0);
+        updateArrowPositions();
+    }
+}
+
+function setupPointerControls(canvas) {
+    const pointers = new Map();
+    let lastPinchDistance = null;
+    let didDrag = false;
+
+    const normalizedPoint = (x, y) => {
+        const rect = canvas.getBoundingClientRect();
+        return new THREE.Vector2(((x - rect.left) / rect.width) * 2 - 1,
+            -((y - rect.top) / rect.height) * 2 + 1);
+    };
+    const pinchDistance = () => {
+        const points = [...pointers.values()];
+        return Math.hypot(points[0].x - points[1].x, points[0].y - points[1].y);
+    };
+    const zoom = (amount, point = new THREE.Vector2(0, 0)) => {
+        if (currentShape !== 'solar_system' || isAnimating) return;
+        camera.updateMatrixWorld(true);
+        raycaster.setFromCamera(point, camera);
+        const next = camera.position.clone().addScaledVector(raycaster.ray.direction, amount);
+        const maxDistance = Math.max(150, Math.hypot(...Object.values(viewPosition('solar_system'))) * 2);
+        if (next.length() >= 4 && next.length() <= maxDistance) camera.position.copy(next);
+    };
+
+    canvas.addEventListener('pointerdown', (event) => {
+        if (event.pointerType === 'mouse' && event.button !== 0) return;
+        if (!pointers.size) {
+            didDrag = false;
+            clickStartTime = Date.now();
+            clickStartPos = { x: event.clientX, y: event.clientY };
+        } else didDrag = true;
+        pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+        canvas.setPointerCapture(event.pointerId);
+        isMouseDragging = true;
+        lastPinchDistance = pointers.size === 2 ? pinchDistance() : null;
+    });
+    canvas.addEventListener('pointermove', (event) => {
+        if (!pointers.has(event.pointerId)) {
+            const planet = getIntersectedPlanet(normalizedPoint(event.clientX, event.clientY));
+            canvas.style.cursor = planet ? 'pointer' : 'grab';
+            return;
+        }
+        const previous = pointers.get(event.pointerId);
+        pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+        if (Math.hypot(event.clientX - clickStartPos.x, event.clientY - clickStartPos.y) > 8) didDrag = true;
+        if (pointers.size >= 2) {
+            didDrag = true;
+            const distance = pinchDistance();
+            if (lastPinchDistance !== null) zoom((distance - lastPinchDistance) * 0.12);
+            lastPinchDistance = distance;
+        } else if (particles && !isAnimating) {
+            particles.rotation.y += (event.clientX - previous.x) * 0.005;
+            particles.rotation.x += (event.clientY - previous.y) * 0.005;
+        }
+    });
+    const endPointer = (event) => {
+        if (!pointers.has(event.pointerId)) return;
+        const isClick = event.type === 'pointerup' && !didDrag && pointers.size === 1 &&
+            Date.now() - clickStartTime < 600 && !isAnimating;
+        pointers.delete(event.pointerId);
+        isMouseDragging = pointers.size > 0;
+        lastPinchDistance = null;
+        if (canvas.hasPointerCapture(event.pointerId)) canvas.releasePointerCapture(event.pointerId);
+        if (!isClick) return;
+        const point = normalizedPoint(event.clientX, event.clientY);
+        if (currentShape === 'solar_system') {
+            const planet = getIntersectedPlanet(point);
+            if (planet) explorePlanet(planet);
+        } else if (currentShape === 'scatter') {
+            raycaster.setFromCamera(point, camera);
+            raycaster.params.Points.threshold = 0.5;
+            const hit = raycaster.intersectObjects([leftArrow, rightArrow].filter(arrow => arrow && arrow.visible), false);
+            if (hit.length) cycleNextTheme(hit[0].object.name === 'next_theme' ? 1 : -1);
+        }
+    };
+    for (const name of ['pointerup', 'pointercancel', 'lostpointercapture']) canvas.addEventListener(name, endPointer);
+    window.addEventListener('blur', () => { pointers.clear(); isMouseDragging = false; lastPinchDistance = null; });
+    canvas.addEventListener('wheel', (event) => {
+        event.preventDefault();
+        if (isAnimating || event.deltaY === 0) return;
+        if (currentShape === 'solar_system') {
+            zoom(-Math.sign(event.deltaY) * 2, normalizedPoint(event.clientX, event.clientY));
+        } else if (event.deltaY > 0) returnToScatter();
+        else if (currentShape === 'scatter') toggleShape();
+    }, { passive: false });
 }
 
 let targetRotationSpeedY = 0.0005;
@@ -1797,6 +1774,7 @@ function cycleNextTheme(direction = 1) {
     const newTheme = themes[idx];
     
     changeTheme(newTheme);
+    updateSceneControls();
     
     let text = "";
     if (newTheme === 'christmas') text = "🎄 切换主题：圣诞树";
@@ -1815,8 +1793,12 @@ function cycleNextTheme(direction = 1) {
     updateStatusText(text);
 }
 
-let hands, cameraMP;
+let hands;
 let isCameraActive = false;
+let cameraStream = null;
+let cameraRequestId = 0;
+let cameraFrameId = null;
+let cameraProcessing = false;
 
 function initMediaPipe() {
     if (hands) return;
@@ -1873,18 +1855,9 @@ function initMediaPipe() {
                 if (isFist) {
                     // Tree/Pluto/Uranus/Sun/Mercury Mode
                     isManualControl = false;
-                    let targetShape = 'tree';
-                    if (currentTheme === 'pluto') targetShape = 'pluto';
-                    if (currentTheme === 'uranus') targetShape = 'uranus';
-                    if (currentTheme === 'sun') targetShape = 'sun';
-                    if (currentTheme === 'mercury') targetShape = 'mercury';
-                    if (currentTheme === 'mars') targetShape = 'mars';
-                    if (currentTheme === 'earth') targetShape = 'earth';
-                    if (currentTheme === 'jupiter') targetShape = 'jupiter';
-                    if (currentTheme === 'saturn') targetShape = 'saturn';
-                    if (currentTheme === 'neptune') targetShape = 'neptune';
-                    if (currentTheme === 'black_hole') targetShape = 'black_hole';
+                    const targetShape = currentTheme === 'solar_system' ? 'solar_system' : shapeForTheme();
                     
+
                     if (currentShape !== targetShape) {
                         morph(targetShape);
                         let text = "";
@@ -1893,6 +1866,7 @@ function initMediaPipe() {
                         else if (currentTheme === 'uranus') text = "❄️ 握拳召唤：天王星模式";
                         else if (currentTheme === 'sun') text = "☀️ 握拳召唤：太阳模式";
                         else if (currentTheme === 'mercury') text = "🌑 握拳召唤：水星模式";
+                        else if (currentTheme === 'venus') text = "🌕 握拳召唤：金星模式";
                         else if (currentTheme === 'mars') text = "🔴 握拳召唤：火星模式";
                         else if (currentTheme === 'earth') text = "🌍 握拳召唤：地球模式";
                         else if (currentTheme === 'jupiter') text = "🟠 握拳召唤：木星模式";
@@ -1929,14 +1903,8 @@ function initMediaPipe() {
         }
     });
 
-    const video = document.getElementById('input_video');
-    cameraMP = new Camera(video, {
-        onFrame: async () => { 
-            if (isCameraActive) await hands.send({ image: video }); 
-        },
-        width: 480, height: 360
-    });
 }
+
 
 const songList = [
     'Abyss Pulse.wav',
@@ -1956,88 +1924,155 @@ function updateMusicInfo() {
     }
 }
 
-function playSong(index) {
-    if (index < 0) index = songList.length - 1;
-    if (index >= songList.length) index = 0;
-    
-    currentSongIndex = index;
+let musicRequestId = 0;
+
+async function playMusic() {
     const bgm = document.getElementById('bgm');
     const toggle = document.getElementById('music-toggle');
-    
-    if (bgm) {
-        bgm.src = 'music/' + songList[currentSongIndex];
-        bgm.load(); // Reload audio source
-        updateMusicInfo();
-        
-        if (toggle && toggle.checked) {
-            bgm.play().catch(e => {
-                console.log("Play failed:", e);
-                toggle.checked = false;
-            });
-        }
+    const requestId = ++musicRequestId;
+    if (!bgm || !toggle.checked) return;
+    try {
+        await bgm.play();
+    } catch (error) {
+        if (requestId !== musicRequestId || !toggle.checked) return;
+        toggle.checked = false;
+        updateStatusText(error.name === 'NotAllowedError'
+            ? '🎵 音乐未播放，请点击音乐开关重试'
+            : '🎵 音乐加载失败，可切换下一首或重试');
     }
 }
 
-function nextSong() {
-    playSong(currentSongIndex + 1);
+function playSong(index) {
+    currentSongIndex = (index + songList.length) % songList.length;
+    const bgm = document.getElementById('bgm');
+    if (!bgm) return;
+    ++musicRequestId;
+    bgm.pause();
+    bgm.src = 'music/' + encodeURIComponent(songList[currentSongIndex]);
+    bgm.load();
+    updateMusicInfo();
+    if (document.getElementById('music-toggle').checked) void playMusic();
 }
 
-function prevSong() {
-    playSong(currentSongIndex - 1);
-}
+function nextSong() { playSong(currentSongIndex + 1); }
+function prevSong() { playSong(currentSongIndex - 1); }
 
 function toggleMusic(checkbox) {
     const bgm = document.getElementById('bgm');
     if (!bgm) return;
-    
-    // Initialize src if empty
-    if (!bgm.getAttribute('src')) {
-        playSong(0);
-        return; // playSong handles the checking
-    }
-    
     if (checkbox.checked) {
-        bgm.play().catch(e => {
-            console.log("Auto-play blocked:", e);
-            checkbox.checked = false; 
-            updateStatusText("🎵 点击页面以播放音乐");
-            
-            const playOnInteraction = () => {
-                bgm.play();
-                checkbox.checked = true;
-                window.removeEventListener('click', playOnInteraction);
-            };
-            window.addEventListener('click', playOnInteraction);
-        });
+        if (!bgm.getAttribute('src')) playSong(currentSongIndex);
+        else void playMusic();
     } else {
+        ++musicRequestId;
         bgm.pause();
     }
 }
 
-async function toggleCamera(checkbox) {
-    const videoContainer = document.getElementById('video-container');
-    
-    if (checkbox.checked) {
-        try {
-            initMediaPipe();
-            isCameraActive = true;
-            videoContainer.style.display = 'block';
-            await cameraMP.start();
-            updateStatusText("🖐️ 手势控制已开启");
-        } catch (e) {
-            console.error(e);
-            alert("无法启动摄像头: " + e.message);
-            checkbox.checked = false;
-            isCameraActive = false;
+document.getElementById('bgm').addEventListener('error', () => {
+    ++musicRequestId;
+    document.getElementById('music-toggle').checked = false;
+    updateStatusText('🎵 当前音乐加载失败，请切换下一首或重试');
+});
+
+function stopCamera() {
+    ++cameraRequestId;
+    isCameraActive = false;
+    isManualControl = false;
+    if (cameraFrameId !== null) cancelAnimationFrame(cameraFrameId);
+    cameraFrameId = null;
+    const video = document.getElementById('input_video');
+    const streams = new Set([cameraStream, video.srcObject]);
+    for (const stream of streams) {
+        if (stream && typeof stream.getTracks === 'function') {
+            for (const track of stream.getTracks()) track.stop();
         }
-    } else {
-        isCameraActive = false;
-        isManualControl = false;
-        videoContainer.style.display = 'none';
-        // if (cameraMP) cameraMP.stop();
-        updateStatusText("🖱️ 鼠标控制模式");
+    }
+    cameraStream = null;
+    video.pause();
+    video.srcObject = null;
+    document.getElementById('video-container').style.display = 'none';
+    document.getElementById('camera-toggle').checked = false;
+}
+
+function processCameraFrame(requestId) {
+    if (!isCameraActive || requestId !== cameraRequestId) return;
+    cameraFrameId = requestAnimationFrame(async () => {
+        const video = document.getElementById('input_video');
+        if (!isCameraActive || requestId !== cameraRequestId) return;
+        if (!cameraProcessing && video.readyState >= 2) {
+            cameraProcessing = true;
+            try {
+                await hands.send({ image: video });
+            } catch (error) {
+                if (requestId === cameraRequestId) {
+                    stopCamera();
+                    updateStatusText('🖐️ 手势识别加载失败，请重试；仍可拖动操作');
+                }
+            } finally {
+                cameraProcessing = false;
+            }
+        }
+        processCameraFrame(requestId);
+    });
+}
+
+async function toggleCamera(checkbox) {
+    if (!checkbox.checked) {
+        stopCamera();
+        updateStatusText('🖱️ 摄像头已关闭，可使用拖动操作');
+        return;
+    }
+    const requestId = ++cameraRequestId;
+    updateStatusText('🖐️ 正在启动摄像头…');
+    try {
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            throw new Error('此浏览器不支持摄像头');
+        }
+        initMediaPipe();
+        const stream = await navigator.mediaDevices.getUserMedia({
+            audio: false, video: { width: { ideal: 480 }, height: { ideal: 360 }, facingMode: 'user' }
+        });
+        if (requestId !== cameraRequestId || !checkbox.checked) {
+            stream.getTracks().forEach(track => track.stop());
+            return;
+        }
+        cameraStream = stream;
+        const video = document.getElementById('input_video');
+        video.srcObject = stream;
+        await video.play();
+        if (requestId !== cameraRequestId || !checkbox.checked) return;
+        isCameraActive = true;
+        document.getElementById('video-container').style.display = 'block';
+        processCameraFrame(requestId);
+        updateStatusText('🖐️ 手势已开启：握拳凝聚 · 张手散开 · OK 切换主题');
+    } catch (error) {
+        if (requestId !== cameraRequestId) return;
+        stopCamera();
+        const denied = error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError';
+        updateStatusText(denied ? '🖐️ 摄像头权限未开启，仍可使用拖动操作'
+            : '🖐️ 摄像头启动失败，请检查设备或重试');
     }
 }
+
+window.addEventListener('pagehide', stopCamera);
+
+window.addEventListener('keydown', (event) => {
+    if (!appStarted || event.repeat || event.altKey || event.ctrlKey || event.metaKey) return;
+    if (event.target && (event.target.closest('input, select, textarea, summary') ||
+        event.target.isContentEditable)) return;
+    if (event.code === 'Space' && event.target && event.target.closest('button')) return;
+    if (event.key === 'Escape') {
+        event.preventDefault();
+        returnToScatter();
+    } else if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+        event.preventDefault();
+        cycleNextTheme(event.key === 'ArrowRight' ? 1 : -1);
+    } else if (event.code === 'Space') {
+        event.preventDefault();
+        toggleShape();
+    }
+});
 
 function animate() {
     requestAnimationFrame(animate);
@@ -2070,9 +2105,7 @@ function animate() {
                 const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
                 const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
                 const seconds = Math.floor((diff % (1000 * 60)) / 1000);
-                const milliseconds = Math.floor(diff % 1000).toString().padStart(3, '0');
-                
-                const text = `${days}d ${hours}h ${minutes}m ${seconds}s ${milliseconds}`;
+                const text = `${days}d ${hours}h ${minutes}m ${seconds}s`;
                 updateCountdownParticles(text);
             }
         } else {
@@ -2240,7 +2273,7 @@ function animate() {
             // Auto rotate only Y in tree mode
             particles.rotation.y += targetRotationSpeedY;
             // Slowly restore X to 0 if it was changed
-            particles.rotation.x *= 0.95;
+            if (currentShape !== 'solar_system') particles.rotation.x *= 0.95;
         }
         
         // Twinkle effect
@@ -2253,6 +2286,7 @@ function animate() {
 }
 
 async function startApp() {
+    if (appStarted) return;
     const btn = document.getElementById('start-btn');
     const overlay = document.getElementById('overlay');
     
@@ -2262,6 +2296,12 @@ async function startApp() {
     try {
         initThree();
         animate();
+        appStarted = true;
+        document.querySelector('.scene-controls').hidden = false;
+        document.querySelector('.help-control').hidden = false;
+        updateSceneControls();
+        // Play within the entry click so browser autoplay policies can allow it.
+        playSong(0);
         
         // Transition UI
         overlay.style.opacity = '0';
@@ -2272,8 +2312,7 @@ async function startApp() {
             const controls = document.querySelector('.controls-container');
             if (controls) controls.style.display = 'flex';
             
-            // Try to play music (First song)
-            playSong(0);
+            // Music playback was requested synchronously from the entry click.
             
             // Show Solar System button if in scatter mode (default is scatter)
             // But wait, initial state is 'scatter'. 
@@ -2284,7 +2323,7 @@ async function startApp() {
         }, 800);
         
         document.getElementById('status').classList.add('active');
-        updateStatusText("🖱️ Welcome! Use Mouse or Gesture Control");
+        updateStatusText('✨ 拖动旋转 · 点击「凝聚」探索 · 查看右下角操作说明');
 
     } catch (e) {
         console.error(e);
@@ -2300,5 +2339,7 @@ window.addEventListener('resize', () => {
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
-    updateArrowPositions();
+    if (currentShape !== 'scatter') resetView(currentShape);
+    else updateArrowPositions();
 });
+
