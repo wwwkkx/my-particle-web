@@ -2059,8 +2059,9 @@ window.addEventListener('pagehide', stopCamera);
 
 window.addEventListener('keydown', (event) => {
     if (!appStarted || event.repeat || event.altKey || event.ctrlKey || event.metaKey) return;
-    if (event.target && (event.target.closest('button, input, select, textarea, summary') ||
+    if (event.target && (event.target.closest('input, select, textarea, summary') ||
         event.target.isContentEditable)) return;
+    if (event.code === 'Space' && event.target && event.target.closest('button')) return;
     if (event.key === 'Escape') {
         event.preventDefault();
         returnToScatter();
@@ -2272,7 +2273,7 @@ function animate() {
             // Auto rotate only Y in tree mode
             particles.rotation.y += targetRotationSpeedY;
             // Slowly restore X to 0 if it was changed
-            particles.rotation.x *= 0.95;
+            if (currentShape !== 'solar_system') particles.rotation.x *= 0.95;
         }
         
         // Twinkle effect
