@@ -16,8 +16,8 @@
         pluto:{radius:.42,start:10200,end:10800,sourceRadius:.4,center:[30*Math.cos(.5),0,30*Math.sin(.5)]}
     };
     const RING_OUTER=3.5/1.5;              // Saturn's ring reaches 3.5 source units around a 1.5-unit globe
-    const MOON_RADIUS={moon:.18,phobos:.08,deimos:.07,io:.18,europa:.16,ganymede:.22,callisto:.2,titan:.22,triton:.16,charon:.2};
-    const FIRST_MOON_ORBIT={earth:1.2,mars:.72,jupiter:2.05,saturn:BASE.saturn.radius*RING_OUTER+.35,neptune:1.3,pluto:.7};
+    const MOON_RADIUS={moon:.18,phobos:.08,deimos:.07,io:.18,europa:.16,ganymede:.22,callisto:.2,enceladus:.09,rhea:.13,titan:.22,miranda:.08,ariel:.11,umbriel:.11,titania:.13,oberon:.13,triton:.16,charon:.2};
+    const FIRST_MOON_ORBIT={earth:1.2,mars:.72,jupiter:2.05,saturn:BASE.saturn.radius*RING_OUTER+.3,uranus:1.4,neptune:1.3,pluto:.7};
     const GAP=.3,SUN_CLEARANCE=.4,BELT_WIDTH=2.0,MOON_SPREAD=.25;
 
     // Lay the system out so nothing can ever touch: each orbit's perihelion clears the previous
@@ -28,7 +28,7 @@
         for(const id of Object.keys(BASE)) {
             if(id==='sun')continue;
             let reach=BASE[id].radius*(id==='saturn'?RING_OUTER:1);
-            const list=D.moons.filter(moon=>moon.parent===id);
+            const list=D.moons.filter(moon=>moon.parent===id).sort((a,b)=>Math.abs(a.periodDays)-Math.abs(b.periodDays));
             for(const moon of list) {
                 const orbit=FIRST_MOON_ORBIT[id]*Math.pow(Math.abs(moon.periodDays)/Math.abs(list[0].periodDays),MOON_SPREAD);
                 moons[moon.id]={radius:MOON_RADIUS[moon.id],orbit};
@@ -163,6 +163,12 @@
             this.createMoons();
             this.createBelts();
             this.createComet();
+            this.createDwarfs();
+            this.createHeliosphere();
+            this.scale='solar';
+            this.deep=root.DeepSpace?new root.DeepSpace(THREE,scene,this.texture):null;
+            this.deepTime={stars:0,galaxy:0,local:0};
+            this.deepRate=this.deep?Object.fromEntries(Object.entries(root.DeepSpace.SCALES).map(([k,v])=>[k,v.rate])):{};
             this.createInterface();
         }
         points(positions,colors,{size=.12,opacity=.9}={}) {
@@ -348,6 +354,96 @@
             this.cometOrbit=new T.Line(pathGeometry,new T.LineBasicMaterial({color:0x9fd4ff,transparent:true,opacity:.08}));
             this.cometOrbit.frustumCulled=false;this.group.add(this.cometOrbit);
         }
+        // Visible spin for any body from its true rate (°/day), ordered like the real rates.
+        static spinFromRate(degPerDay,rate) {
+            if(!rate)return 0;
+            const fast=Math.log10(870.536/1.4),value=Math.log10(Math.abs(degPerDay)/1.4);
+            return Math.sign(degPerDay)*Math.max(6,Math.min(24,6+18*value/fast))*(SPEED_BOOST[rate]||1);
+        }
+        // Map a heliocentric ecliptic vector (AU) to the display: Ceres lives inside the asteroid belt band,
+        // everything else follows the planet-anchored distance scale.
+        static helioToDisplay(vector,belt=false) {
+            const w=D.toWorld(vector),r=Math.hypot(...w)||1;
+            const {inner,outer}=LAYOUT.belt;
+            const d=belt?inner+Math.max(0,Math.min(1,(r-2.1)/1.2))*(outer-inner):SolarScene.auToDisplay(r);
+            return w.map(v=>v*d/r);
+        }
+        createDwarfs() {
+            const T=this.THREE;
+            this.dwarfs=new Map();
+            for(const dwarf of D.dwarfs) {
+                const radius=dwarf.id==='ceres'?.26:dwarf.id==='eris'?.34:.3,random=seeded(dwarf.id.length*131);
+                const base=hex(dwarf.color),positions=[],colors=[],count=260;
+                for(let i=0;i<count;i++) {
+                    const z=random()*2-1,a=random()*Math.PI*2,s=Math.sqrt(1-z*z),r=radius*(.92+random()*.08);
+                    positions.push(s*Math.cos(a)*r,z*r,s*Math.sin(a)*r);
+                    const pick=random();colors.push(...(pick>.78?[1,1,1]:base.map(v=>v*(pick>.4?1:.7))));
+                }
+                const size=particleSize(radius);
+                const mesh=this.points(positions,colors,{size,opacity:.8});
+                mesh.userData.baseSize=size;
+                // Haumea: a triaxial ellipsoid (≈ 1 : 0.8 : 0.51, short axis = spin axis) with a ring.
+                if(dwarf.shape)mesh.scale.set(dwarf.shape[0],dwarf.shape[2],dwarf.shape[1]);
+                if(dwarf.id==='haumea') {
+                    const ring=[],ringColors=[];
+                    for(let i=0;i<360;i++){const a=random()*Math.PI*2,r=radius*2.9*(.97+random()*.06);ring.push(Math.cos(a)*r,0,Math.sin(a)*r);ringColors.push(.8,.82,.9);}
+                    const ringMesh=this.points(ring,ringColors,{size:size*.7,opacity:.6});
+                    mesh.add(ringMesh);
+                }
+                const [a,e,I,node,arg]=dwarf.elements,path=new Float32Array(361*3);
+                for(let i=0;i<=360;i++)path.set(SolarScene.helioToDisplay(D.pointAtEccentricAnomaly({a,e,I,node,peri:node+arg},i/360*Math.PI*2),dwarf.id==='ceres'),i*3);
+                const geometry=new T.BufferGeometry();geometry.setAttribute('position',new T.BufferAttribute(path,3));
+                const orbit=new T.Line(geometry,new T.LineBasicMaterial({color:new T.Color(...base),transparent:true,opacity:.08}));
+                orbit.frustumCulled=false;
+                this.group.add(mesh);this.group.add(orbit);
+                this.dwarfs.set(dwarf.id,{dwarf,mesh,orbit,radius,phase:0});
+            }
+        }
+        // The heliosphere: termination shock ≈ 94 AU, heliopause ≈ 121 AU (Voyager 1), its nose facing the
+        // interstellar wind (from ecliptic λ ≈ 255.4°, β ≈ 5.2°) and a longer tail downwind.
+        createHeliosphere() {
+            const T=this.THREE,random=seeded(121);
+            const lam=255.4*D.DEG,bet=5.2*D.DEG,nose=D.toWorld([Math.cos(bet)*Math.cos(lam),Math.cos(bet)*Math.sin(lam),Math.sin(bet)]);
+            const shell=(au,count,tint,stretch)=>{
+                const positions=[],colors=[],R0=SolarScene.auToDisplay(au);
+                for(let i=0;i<count;i++) {
+                    const z=random()*2-1,a=random()*Math.PI*2,s=Math.sqrt(1-z*z),u=[s*Math.cos(a),z,s*Math.sin(a)];
+                    const cos=u[0]*nose[0]+u[1]*nose[1]+u[2]*nose[2],r=R0*(1+stretch*(1-cos)/2)*(.97+random()*.06);
+                    positions.push(u[0]*r,u[1]*r,u[2]*r);
+                    const shade=.35+random()*.65;colors.push(...tint.map(v=>v*shade));
+                }
+                return this.points(positions,colors,{size:2.2,opacity:.28});
+            };
+            this.heliosphere=new T.Group();
+            this.heliosphere.add(shell(94,4000,[.45,.6,1],.6));
+            this.heliosphere.add(shell(121.6,7000,[.55,.75,1],.9));
+            this.group.add(this.heliosphere);
+            this.voyagers=new Map();
+            for(const probe of D.voyagers) {
+                const mesh=this.points([0,0,0,0,0,0],[1,1,1,.7,.9,1],{size:1.2,opacity:1});
+                const geometry=new T.BufferGeometry();geometry.setAttribute('position',new T.BufferAttribute(new Float32Array(6),3));
+                const trail=new T.Line(geometry,new T.LineBasicMaterial({color:0xcfe6ff,transparent:true,opacity:.25}));
+                trail.frustumCulled=false;
+                this.group.add(mesh);this.group.add(trail);
+                this.voyagers.set(probe.id,{probe,mesh,trail});
+            }
+        }
+        updateOuterBodies(jd,dt,rate) {
+            for(const item of this.dwarfs.values()) {
+                item.mesh.position.fromArray(SolarScene.helioToDisplay(D.dwarfPosition(item.dwarf.id,jd),item.dwarf.id==='ceres'));
+                item.phase+=SolarScene.spinFromRate(360*24/item.dwarf.rotationHours,rate)*dt*D.DEG;
+                item.mesh.rotation.y=item.phase;
+            }
+            for(const {probe,mesh,trail} of this.voyagers.values()) {
+                const p=D.voyagerPosition(probe.id,jd);
+                mesh.visible=trail.visible=!!p&&this.layers.small;
+                if(!p)continue;
+                const head=SolarScene.helioToDisplay(p),start=SolarScene.helioToDisplay(D.voyagerPosition(probe.id,probe.from));
+                mesh.position.fromArray(head);
+                trail.geometry.attributes.position.array.set([...start,...head]);
+                trail.geometry.attributes.position.needsUpdate=true;
+            }
+        }
         // Heliocentric Kepler position, scaled so the orbit keeps its true shape and eccentricity.
         displayPosition(id,jd) {
             if(id==='sun')return [0,0,0];
@@ -367,6 +463,12 @@
             const speeds=D.RATES.map(rate=>`<option value="${rate}">${({0:'暂停自转 / 公转',1:'实时 · 1×',3600:'1 小时 / 秒',86400:'1 天 / 秒',604800:'7 天 / 秒',2592000:'30 天 / 秒'})[rate]}</option>`).join('');
             this.hud.innerHTML=`<summary><span class="solar-eyebrow">实时轨道</span><strong id="solar-view-name">粒子太阳系</strong><span class="solar-clock" id="solar-clock"></span><span class="solar-expand">视角、时间与资料 <span aria-hidden="true">⌄</span></span></summary>
                 <div class="solar-settings">
+                    <div class="solar-view-buttons solar-scales" role="group" aria-label="尺度"><button type="button" data-scale="solar" aria-pressed="true">太阳系</button><button type="button" data-scale="stars" aria-pressed="false">近邻恒星</button><button type="button" data-scale="galaxy" aria-pressed="false">银河系</button><button type="button" data-scale="local" aria-pressed="false">本星系群</button></div>
+                    <div class="deep-only" hidden>
+                        <label class="solar-field">时间倍率<select id="deep-speed" aria-label="时间倍率"></select></label>
+                        <div class="solar-view-buttons"><button type="button" id="deep-reset">回到现在</button></div>
+                    </div>
+                    <div class="solar-only">
                     <div class="solar-view-buttons"><button type="button" data-view="overview">太阳系全景</button><button type="button" data-view="inner">内太阳系</button></div>
                     <label class="solar-field">模拟速度<select id="solar-speed" aria-label="模拟速度">${speeds}</select></label>
                     <label class="solar-field">日期与时间（UTC）<input id="solar-date" type="datetime-local" step="1" min="1972-01-01T00:00:00" max="2050-01-01T00:00:00"></label>
@@ -375,6 +477,7 @@
                     <div class="solar-field" id="solar-layer-label">显示内容</div>
                     <div class="solar-toggles" role="group" aria-labelledby="solar-layer-label">
                         <button type="button" data-layer="orbits" aria-pressed="true">轨道</button><button type="button" data-layer="moons" aria-pressed="true">卫星</button><button type="button" data-layer="small" aria-pressed="true">小天体</button>
+                    </div>
                     </div>
                     <p id="solar-error" class="solar-error" role="alert"></p>
                     <dl id="solar-facts"></dl>
@@ -413,6 +516,30 @@
             this.pauseButton.addEventListener('click',()=>{this.clock.setRate(this.clock.rate?0:DEFAULT_RATE);this.refreshHud(true);});
             for(const button of this.hud.querySelectorAll('[data-view]'))button.addEventListener('click',()=>this.overview(button.dataset.view==='inner'));
             for(const button of this.hud.querySelectorAll('[data-layer]'))button.addEventListener('click',()=>this.setLayer(button.dataset.layer,!this.layers[button.dataset.layer]));
+            this.deepSpeed=this.hud.querySelector('#deep-speed');
+            for(const button of this.hud.querySelectorAll('[data-scale]'))button.addEventListener('click',()=>this.setScale(button.dataset.scale));
+            this.deepSpeed.addEventListener('change',()=>{this.deepRate[this.scale]=Number(this.deepSpeed.value);this.refreshHud(true);});
+            this.hud.querySelector('#deep-reset').addEventListener('click',()=>{this.deepTime[this.scale]=0;if(this.scale==='local')this.resize();this.refreshHud(true);});
+        }
+        // Switch between the solar system and the larger scales; each keeps its own clock.
+        setScale(scale) {
+            if(!['solar','stars','galaxy','local'].includes(scale)||!this.deep&&scale!=='solar')return;
+            this.scale=scale;
+            const solar=scale==='solar';
+            this.group.visible=this.active&&solar;
+            if(this.deep)this.deep.setScale(solar?null:scale);
+            for(const button of this.hud.querySelectorAll('[data-scale]'))button.setAttribute('aria-pressed',String(button.dataset.scale===scale));
+            this.hud.querySelector('.solar-only').hidden=!solar;
+            this.hud.querySelector('.deep-only').hidden=solar;
+            this.rotateButton.hidden=!this.active;
+            if(!solar) {
+                if(this.focusId){this.focusId=null;this.onFocus(null);}
+                const spec=root.DeepSpace.SCALES[scale];
+                this.deepSpeed.innerHTML=spec.rates.map(([value,label])=>`<option value="${value}">${label}</option>`).join('');
+                this.deepSpeed.value=String(this.deepRate[scale]);
+                this.mode=scale;this.azimuth=-.35;this.polar=this.defaultPolar();this.resize();
+                this.refreshHud(true);
+            } else this.overview();
         }
         setLayer(name,enabled) {
             if(!(name in this.layers))return;
@@ -428,6 +555,8 @@
             for(const {orbit} of this.moonSystems.values())orbit.visible=L.orbits;
             for(const item of [this.asteroids,this.kuiper,this.comet,this.cometTail])if(item)item.visible=L.small;
             if(this.cometOrbit)this.cometOrbit.visible=L.small&&L.orbits&&overview;
+            if(this.dwarfs)for(const {mesh,orbit} of this.dwarfs.values()){mesh.visible=L.small;orbit.visible=L.small&&L.orbits&&overview;}
+            if(this.heliosphere)this.heliosphere.visible=L.small;
         }
         activate() {
             this.savedFog=this.scene.fog;this.savedNear=this.camera.near;this.savedFar=this.camera.far;
@@ -438,10 +567,11 @@
             document.body.classList.add('solar-active');
             this.clock.realtime();this.clock.setRate(DEFAULT_RATE);
             this.cameraWall=Date.now();this.dragging=false;this.spinUp=1;
-            this.setRotation(true);this.overview();this.applyLayers();this.update();
+            this.setRotation(true);this.scale='solar';this.setScale('solar');this.applyLayers();this.update();
         }
         deactivate() {
             this.active=false;this.group.visible=false;this.hud.hidden=true;this.rotateButton.hidden=true;this.dragging=false;
+            if(this.deep)this.deep.setScale(null);
             this.scene.fog=this.savedFog;this.camera.near=this.savedNear;this.camera.far=this.savedFar;
             if(this.savedView) {
                 const v=this.savedView;this.camera.setViewOffset(v.fullWidth,v.fullHeight,v.offsetX,v.offsetY,v.width,v.height);
@@ -456,7 +586,7 @@
             this.rotateButton.textContent=enabled?'暂停视角旋转':'恢复视角旋转';
             this.rotateButton.setAttribute('aria-pressed',String(enabled));
         }
-        defaultPolar(){return this.focusId?1.05:Math.acos(.65);}
+        defaultPolar(){if(this.scale==='galaxy')return .62;if(this.scale==='local')return 1.05;return this.focusId?1.05:Math.acos(.65);}
         overview(inner=false) {
             this.mode=inner?'inner':'overview';this.focusId=null;
             this.azimuth=-.35;this.polar=this.defaultPolar();
@@ -465,6 +595,7 @@
         }
         focus(id) {
             if(!D.byId[id])return;
+            if(this.scale&&this.scale!=='solar')this.setScale('solar');
             this.mode='body';this.focusId=id;
             this.azimuth=.3;this.polar=this.defaultPolar();
             this.applyLayers();
@@ -477,6 +608,10 @@
             return Math.max(30,...D.bodies.map(body=>Math.hypot(...this.displayPosition(body.id,jd))+DISPLAY[body.id].extent));
         }
         resize() {
+            if(this.scale&&this.scale!=='solar'&&this.deep) {
+                this.distance=this.deep.radius(this.scale,this.deepTime[this.scale])/Math.sin(this.halfFov());
+                return;
+            }
             const radius=this.focusId?DISPLAY[this.focusId].extent*1.25:this.viewRadius()*1.02;
             this.distance=radius/Math.sin(this.halfFov());
         }
@@ -487,8 +622,13 @@
             this.azimuth-=dx*.005;this.polar=Math.max(.03,Math.min(Math.PI-.03,this.polar+dy*.005));
         }
         zoom(amount) {
+            if(this.scale&&this.scale!=='solar'&&this.deep) {
+                const r=this.deep.radius(this.scale,this.deepTime[this.scale]);
+                this.distance=Math.min(r*8,Math.max(r*.08,this.distance*Math.exp(-amount*.07)));
+                return;
+            }
             const radius=this.focusId?this.meshes.get(this.focusId).userData.radius:2.8;
-            this.distance=Math.min(700,Math.max(radius*1.15,this.distance*Math.exp(-amount*.07)));
+            this.distance=Math.min(1600,Math.max(radius*1.15,this.distance*Math.exp(-amount*.07)));
         }
         // Ease back to the default tilt after a drag, then ramp the rotation back up.
         stepCamera(dt) {
@@ -498,7 +638,26 @@
             const ease=this.spinUp*this.spinUp*(3-2*this.spinUp);
             this.azimuth+=dt*AUTO_ROTATE_SPEED*ease;
         }
+        updateDeep(wall) {
+            const T=this.THREE,scale=this.scale,rate=this.deepRate[scale];
+            const dt=this.cameraWall?Math.min(.1,Math.max(0,(wall-this.cameraWall)/1000)):0;
+            this.stepCamera(dt);this.cameraWall=wall;
+            let time=this.deepTime[scale]+rate*dt;
+            if(scale==='local')time=Math.min(time,root.DeepData.ANDROMEDA_CONTACT_MYR);
+            this.deepTime[scale]=time;
+            this.deep.update(scale,time,dt,rate);
+            this.target.fromArray(this.deep.center(scale,time));
+            const sp=Math.sin(this.polar);
+            this.camera.position.set(this.target.x+this.distance*sp*Math.sin(this.azimuth),this.target.y+this.distance*Math.cos(this.polar),this.target.z+this.distance*sp*Math.cos(this.azimuth));
+            const width=this.canvas.clientWidth,height=this.canvas.clientHeight;
+            if(this.viewWidth!==width||this.viewHeight!==height){this.viewWidth=width;this.viewHeight=height;this.camera.setViewOffset(width,height,0,width<=900?60:38,width,height);}
+            if(this.camera.near!==.005||this.camera.far!==6000){this.camera.near=.005;this.camera.far=6000;this.camera.updateProjectionMatrix();}
+            this.camera.lookAt(this.target);this.camera.updateMatrixWorld(true);
+            this.projected=[];
+            if(!this.hudAt||wall-this.hudAt>200){this.refreshHud(false);this.hudAt=wall;this.hud.dataset.focus=scale;this.hud.dataset.rotate=String(this.autoRotate);}
+        }
         update(wall=Date.now()) {
+            if(this.scale&&this.scale!=='solar'&&this.deep)return this.updateDeep(wall);
             const utc=this.clock.value(wall),jd=D.toJulianTDB(utc),T=this.THREE;
             if((utc===D.MAX_UTC||utc===D.MIN_UTC)&&this.clock.rate)this.clock.setRate(0,wall);
             const dt=this.cameraWall?Math.min(.1,Math.max(0,(wall-this.cameraWall)/1000)):0;
@@ -523,6 +682,7 @@
             this.orbitMonth=month;
             this.updateMoons(jd,dt,rate);
             this.updateSmallBodies(jd);
+            this.updateOuterBodies(jd,dt,rate);
             this.target.copy(this.focusId?this.meshes.get(this.focusId).position:new T.Vector3());
             const sp=Math.sin(this.polar);
             this.camera.position.set(this.target.x+this.distance*sp*Math.sin(this.azimuth),this.target.y+this.distance*Math.cos(this.polar),this.target.z+this.distance*sp*Math.cos(this.azimuth));
@@ -532,7 +692,7 @@
                 // Lift the scene clear of the bottom toolbar and the collapsed mobile panel.
                 this.camera.setViewOffset(width,height,0,width<=900?60:38,width,height);
             }
-            if(this.camera.near!==.01||this.camera.far!==2000){this.camera.near=.01;this.camera.far=2000;this.camera.updateProjectionMatrix();}
+            if(this.camera.near!==.01||this.camera.far!==6000){this.camera.near=.01;this.camera.far=6000;this.camera.updateProjectionMatrix();}
             this.camera.lookAt(this.target);this.camera.updateMatrixWorld(true);
             this.keepParticlesVisible(height);
             this.projected=D.bodies.map(body=>{
@@ -638,11 +798,13 @@
             this.cometTail.material.opacity=Math.min(.9,length/3);
         }
         pick(ndc) {
+            if(this.scale&&this.scale!=='solar')return null;
             const x=(ndc.x+1)*this.canvas.clientWidth/2,y=(1-ndc.y)*this.canvas.clientHeight/2;
             return this.projected.filter(p=>p.z>=-1&&p.z<=1).map(p=>({...p,hit:Math.hypot(x-p.x,y-p.y)}))
                 .filter(p=>p.hit<Math.max(12,p.radius)).sort((a,b)=>a.hit-b.hit)[0]?.id||null;
         }
         refreshHud(force=false,utc=this.clock.value()) {
+            if(this.scale&&this.scale!=='solar'&&this.deep)return this.refreshDeepHud(force);
             const date=new Date(utc),body=D.byId[this.focusId],rate=this.clock.rate,jd=D.toJulianTDB(utc);
             this.clockText.textContent=date.toISOString().slice(0,19).replace('T',' ')+' UTC · '+(SPEED_LABELS[rate]||'');
             if(!this.dateEditing&&document.activeElement!==this.dateInput)this.dateInput.value=date.toISOString().slice(0,19);
@@ -672,6 +834,30 @@
                 this.facts.innerHTML=`<dt>行星</dt><dd>8 颗 + 冥王星</dd><dt>卫星</dt><dd>${D.moons.length} 颗主要卫星</dd><dt>小天体</dt><dd>小行星带 · 柯伊伯带</dd><dt>哈雷彗星距太阳</dt><dd>${comet}</dd>`;
                 if(this.factText)this.factText.textContent='把日期改到 1986 年 2 月、速度调到 1 天/秒，可以看到哈雷彗星掠过太阳、拖出彗尾。';
             }
+        }
+        refreshDeepHud(force) {
+            const X=root.DeepData,scale=this.scale,t=this.deepTime[scale],spec=root.DeepSpace.SCALES[scale],rate=this.deepRate[scale];
+            const rateLabel=(spec.rates.find(([value])=>value===rate)||[,''])[1];
+            const years=scale==='stars'?t:t*1e6;
+            const when=years<1?'现在':years<1e4?`${Math.round(years).toLocaleString('zh-CN')} 年后`:years<1e8?`${(years/1e4).toFixed(years<1e5?1:0)} 万年后`:`${(years/1e8).toFixed(1)} 亿年后`;
+            this.clockText.textContent=`${when} · ${rateLabel}`;
+            if(force)this.hud.querySelector('#solar-view-name').textContent=spec.name;
+            let rows='',fact='';
+            if(scale==='stars') {
+                const b=X.binaryOffset(X.BINARIES[0],2026.8+t);
+                rows=`<dt>比邻星距离</dt><dd>${X.distanceAt('proxima',t).toFixed(3)} 光年</dd><dt>南门二距离</dt><dd>${X.distanceAt('alfCenA',t).toFixed(3)} 光年</dd><dt>南门二 A–B 间距</dt><dd>${b.separationAU.toFixed(1)} AU · 周期 79.9 年</dd><dt>巴纳德星距离</dt><dd>${X.distanceAt('barnard',t).toFixed(3)} 光年</dd><dt>天狼星距离</dt><dd>${X.distanceAt('sirius',t).toFixed(3)} 光年</dd>`;
+                fact='恒星按实测的自行和视向速度运动：巴纳德星正以约 110 km/s 靠近，约 9800 年后最近（3.75 光年）；南门二约 2.8 万年后最近（约 3.2 光年）。双星按真实周期绕共同质心转动，间距放大约 760 倍显示。太阳外面是奥尔特云。';
+            } else if(scale==='galaxy') {
+                const W=X.MILKY_WAY,period=X.solarGalacticPeriodMyr(),turned=(t/period*360)%360;
+                rows=`<dt>太阳距银心</dt><dd>${(W.sunRadius/10).toFixed(2)} 万光年</dd><dt>太阳公转速度</dt><dd>${X.rotationSpeed(W.sunRadius).toFixed(0)} km/s</dd><dt>绕银心一周</dt><dd>${(period/100).toFixed(2)} 亿年</dd><dt>本次已转过</dt><dd>${turned.toFixed(1)}°</dd><dt>旋臂图样速度</dt><dd>${W.patternSpeed} km/s/kpc</dd>`;
+                fact='恒星按平坦的自转曲线绕银心运动（Ω = v / r，内圈转得更快）；旋臂是密度波，以图样速度整体转动，恒星会穿过旋臂；中央的棒以更快的图样速度转动。黄色亮点是太阳。';
+            } else {
+                const m31=X.andromeda(t),left=X.ANDROMEDA_CONTACT_MYR-t;
+                rows=`<dt>仙女座距离</dt><dd>${(m31.distanceKly/10).toFixed(0)} 万光年</dd><dt>接近速度</dt><dd>${Math.abs(m31.speedKms).toFixed(0)} km/s</dd><dt>预计首次相遇</dt><dd>${left>1?(left/100).toFixed(1)+' 亿年后':'正在相遇'}</dd><dt>大麦哲伦云</dt><dd>16.2 万光年</dd><dt>三角座星系</dt><dd>274 万光年</dd>`;
+                fact='仙女座在引力作用下加速向银河系落来（两体径向下落，越近越快）。点质量模型取 1.1×10¹² 太阳质量，使首次相遇约在 45 亿年后，与常引用的预测一致；2025 年基于 Gaia 的研究认为，100 亿年内真正合并的概率约为一半。星系自转在此视图中以展示速度显示。';
+            }
+            this.facts.innerHTML=rows;
+            if(this.factText)this.factText.textContent=fact;
         }
         // Venus and Uranus spin backwards; Pluto's positive pole points south of the ecliptic.
         static isRetrograde(id) { return id!=='sun'&&D.obliquity(id,D.J2000)>90; }

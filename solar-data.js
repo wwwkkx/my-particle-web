@@ -134,7 +134,14 @@
         {id:'europa',name:'木卫二',parent:'jupiter',radiusKm:1560.8,periodDays:3.551181,plane:'equator',longitude0:175.73161,color:[.9,.86,.76]},
         {id:'ganymede',name:'木卫三',parent:'jupiter',radiusKm:2634.1,periodDays:7.154553,plane:'equator',longitude0:120.55883,color:[.7,.66,.6]},
         {id:'callisto',name:'木卫四',parent:'jupiter',radiusKm:2410.3,periodDays:16.689018,plane:'equator',longitude0:84.44459,color:[.5,.46,.42]},
+        {id:'enceladus',name:'土卫二',parent:'saturn',radiusKm:252.1,periodDays:1.370218,plane:'equator',longitude0:40,color:[.95,.97,1]},
+        {id:'rhea',name:'土卫五',parent:'saturn',radiusKm:763.8,periodDays:4.518212,plane:'equator',longitude0:200,color:[.84,.84,.86]},
         {id:'titan',name:'土卫六',parent:'saturn',radiusKm:2574.7,periodDays:15.945421,plane:'equator',longitude0:0,color:[.92,.7,.36]},
+        {id:'miranda',name:'天卫五',parent:'uranus',radiusKm:235.8,periodDays:1.413479,plane:'equator',longitude0:0,color:[.78,.8,.84]},
+        {id:'ariel',name:'天卫一',parent:'uranus',radiusKm:578.9,periodDays:2.520379,plane:'equator',longitude0:72,color:[.86,.88,.92]},
+        {id:'umbriel',name:'天卫二',parent:'uranus',radiusKm:584.7,periodDays:4.144177,plane:'equator',longitude0:144,color:[.6,.62,.66]},
+        {id:'titania',name:'天卫三',parent:'uranus',radiusKm:788.4,periodDays:8.705872,plane:'equator',longitude0:216,color:[.8,.78,.78]},
+        {id:'oberon',name:'天卫四',parent:'uranus',radiusKm:761.4,periodDays:13.463239,plane:'equator',longitude0:288,color:[.74,.7,.7]},
         {id:'triton',name:'海卫一',parent:'neptune',radiusKm:1353.4,periodDays:-5.876854,plane:'equator',longitude0:0,color:[.86,.8,.78]},
         {id:'charon',name:'冥卫一',parent:'pluto',radiusKm:606,periodDays:6.387230,plane:'equator',longitude0:0,color:[.68,.66,.66]}
     ].map(moon=>Object.freeze(moon));
@@ -152,6 +159,40 @@
         const orbit={a:c.a,e:c.e,I:c.inclination,node:c.node,peri:c.node+c.argPeri};
         return pointAtEccentricAnomaly(orbit,solveKepler(mean,c.e));
     }
+    // Dwarf planets: JPL SBDB osculating elements (full precision), heliocentric ecliptic J2000,
+    // epoch 2461200.5 TDB (2026-06-10). [a AU, e, i, node, argument of perihelion, mean anomaly, period days]
+    const dwarfs = [
+        {id:'ceres',name:'谷神星',radiusKm:469.7,rotationHours:9.07417,color:'#cfd2d6',elements:[2.765552595034094,.07969229514816586,10.58802780183462,80.24862682043221,73.29421453021587,274.4193463761342,1679.853119758983]},
+        {id:'haumea',name:'妊神星',radiusKm:780,rotationHours:3.9154,color:'#eef2ff',shape:[1,.8,.51],elements:[43.06029023650952,.1944430148898797,28.20847393040364,121.7860561329425,240.6905472508661,223.2104118812299,103208.1173403618]},
+        {id:'makemake',name:'鸟神星',radiusKm:715,rotationHours:22.8266,color:'#e9b48c',elements:[45.57093317300052,.1588889953992523,29.02785603743067,79.2948338209406,297.0922733397207,169.9379962048232,112364.8068762869]},
+        {id:'eris',name:'阋神星',radiusKm:1163,rotationHours:25.9,color:'#f4f4ff',elements:[67.93394687853566,.4382385347971672,43.9258279471791,36.00477044417249,150.7949235840312,211.774434275007,204516.6629430732]}
+    ].map(dwarf=>Object.freeze(dwarf));
+    const DWARF_EPOCH = 2461200.5;
+    function dwarfPosition(id,jd) {
+        const dwarf=dwarfs.find(item=>item.id===id);
+        if (!dwarf) throw new RangeError('Unknown dwarf planet: '+id);
+        const [a,e,I,node,arg,ma,period]=dwarf.elements;
+        const mean=wrapDegrees(ma+360*(jd-DWARF_EPOCH)/period)*DEG;
+        return pointAtEccentricAnomaly({a,e,I,node,peri:node+arg},solveKepler(mean,e));
+    }
+
+    // Voyager probes after their last planetary flyby: straight escape at constant speed.
+    // Heliopause crossings: Voyager 1 at 121.6 AU on 2012-08-25, Voyager 2 at 119 AU on 2018-11-05.
+    const voyagers = [
+        {id:'voyager1',name:'旅行者 1 号',crossJD:2456164.5,crossAU:121.6,speedAU:3.57,ra:257.5,dec:12.0,from:2447892.5},
+        {id:'voyager2',name:'旅行者 2 号',crossJD:2458427.5,crossAU:119.0,speedAU:3.25,ra:298.0,dec:-58.0,from:2447892.5}
+    ].map(probe=>Object.freeze(probe));
+    function equatorialToEcliptic(v) {
+        const eps=23.43928*DEG;
+        return [v[0],Math.cos(eps)*v[1]+Math.sin(eps)*v[2],-Math.sin(eps)*v[1]+Math.cos(eps)*v[2]];
+    }
+    function voyagerPosition(id,jd) {
+        const probe=voyagers.find(item=>item.id===id);
+        if (!probe) throw new RangeError('Unknown probe: '+id);
+        if (jd<probe.from) return null; // planetary-flyby era is not modelled
+        const r=probe.crossAU+probe.speedAU*(jd-probe.crossJD)/365.25,ra=probe.ra*DEG,dec=probe.dec*DEG;
+        return equatorialToEcliptic([Math.cos(dec)*Math.cos(ra),Math.cos(dec)*Math.sin(ra),Math.sin(dec)]).map(value=>value*r);
+    }
     const RATES = Object.freeze([0,1,3600,86400,604800,2592000]);
     class Clock {
         constructor(wallMs=Date.now()) { this.epoch=Math.min(MAX_UTC,Math.max(MIN_UTC,wallMs));this.wall=wallMs;this.rate=1; }
@@ -160,5 +201,5 @@
         setTime(utcMs,wallMs=Date.now()) { if(!Number.isFinite(utcMs)||utcMs<MIN_UTC||utcMs>MAX_UTC)throw new RangeError('日期须在 1972-01-01 至 2050-01-01 之间');this.epoch=utcMs;this.wall=wallMs; }
         realtime(wallMs=Date.now()) { this.setTime(wallMs,wallMs);this.rate=1; }
     }
-    return Object.freeze({AU_KM,DAY_MS,J2000,DEG,MIN_UTC,MAX_UTC,RATES,bodies,byId,pluto,moons,halley,wrapDegrees,toJulianTDB,solveKepler,orbitalElements,pointAtEccentricAnomaly,position,toWorld,orientation,obliquity,spinAngle,moonLongitude,cometPosition,Clock});
+    return Object.freeze({AU_KM,DAY_MS,J2000,DEG,MIN_UTC,MAX_UTC,RATES,bodies,byId,pluto,moons,halley,dwarfs,voyagers,wrapDegrees,toJulianTDB,solveKepler,orbitalElements,pointAtEccentricAnomaly,position,toWorld,orientation,obliquity,spinAngle,moonLongitude,cometPosition,dwarfPosition,voyagerPosition,Clock});
 });
