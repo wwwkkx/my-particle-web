@@ -1500,7 +1500,9 @@ function morph(targetType) {
         if (rightArrow) rightArrow.visible = false;
         currentShape = targetType;
         isAnimating = false;
-        if (!physicalSolar) physicalSolar = new SolarScene(THREE, scene, camera, renderer.domElement, () => updateSceneControls());
+        if (!physicalSolar) physicalSolar = new SolarScene(THREE, scene, camera, renderer.domElement, () => updateSceneControls(), {
+            positions: solarSystemPos, colors: solarSystemColors, material: particles.material
+        });
         physicalSolar.activate();
         updateSceneControls();
         return;
@@ -1594,7 +1596,7 @@ function enterSolarSystem() {
     }
     if (currentTheme !== 'solar_system') themeBeforeSolar = currentTheme;
     morph('solar_system');
-    updateStatusText('真实比例 · 点击名称跟随 · 实时 1×');
+    updateStatusText('粒子太阳系 · 拖动旋转 · 点击星球近看');
 }
 
 function returnToScatter() {

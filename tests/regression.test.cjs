@@ -109,18 +109,18 @@ test('returning during entry animation cannot leave the user stuck in solar mode
     assert.equal(e.run('currentTheme'), 'christmas');
 });
 
-test('physical solar camera fits the outer orbit and a focused planet on desktop and phone', () => {
+test('particle overview and focused planet remain framed on desktop and phone', () => {
     const context=vm.createContext({SolarData:require('../solar-data.js')});
     vm.runInContext(fs.readFileSync(path.join(__dirname,'..','solar-scene.js'),'utf8'),context);
     for (const aspect of [1373/731,390/844,320/568,844/390]) {
         context.aspect=aspect;
         const radii=vm.runInContext(`(() => {
-            const view=Object.create(SolarScene.prototype);view.camera={fov:75,aspect};view.mode='overview';
+            const view=Object.create(SolarScene.prototype);view.camera={fov:75,aspect};view.mode='overview';view.clock=new SolarData.Clock(Date.UTC(2026,9,20));
             view.resize();const overview=view.distance*Math.sin(view.halfFov());
             view.mode='body';view.focusId='earth';view.resize();
-            return [overview,view.distance*Math.sin(view.halfFov())/SolarData.byId.earth.radiusAU];
+            return [overview,view.distance*Math.sin(view.halfFov())/SolarScene.DISPLAY.earth.radius];
         })()`,context);
-        assert.ok(radii[0]>51,`outer radius at aspect ${aspect}`);
+        assert.ok(radii[0]>30,`visible overview radius at aspect ${aspect}`);
         assert.ok(radii[1]>1.5,`focused radius at aspect ${aspect}`);
     }
 });
@@ -137,6 +137,42 @@ test('physical planet selection follows in place and art selection exits cleanly
     assert.equal(e.run('particles.visible'),true);
     assert.equal(e.element('camera-toggle').disabled,false);
     assert.equal(e.run('currentShape'),'black_hole');
+});
+
+test('restored solar bodies are colored particle clouds and Saturn rings are recentered before tilt',()=>{
+    class Attribute {constructor(array,itemSize){this.array=Float32Array.from(array);this.count=this.array.length/itemSize;}}
+    class Geometry {constructor(){this.attributes={};}setAttribute(name,value){this.attributes[name]=value;}computeBoundingSphere(){}}
+    class Material {constructor(options){Object.assign(this,options);}}
+    class Points {constructor(geometry,material){Object.assign(this,{geometry,material,type:'Points',userData:{}});}}
+    const context=vm.createContext({SolarData:require('../solar-data.js')});
+    vm.runInContext(fs.readFileSync(path.join(__dirname,'..','solar-scene.js'),'utf8'),context);
+    const controller=Object.create(context.SolarScene.prototype);
+    controller.THREE={BufferGeometry:Geometry,Float32BufferAttribute:Attribute,PointsMaterial:Material,Points,AdditiveBlending:2};
+    const source={positions:new Float32Array(15000*3),colors:new Float32Array(15000*3),material:{map:{}}};
+    source.positions[0]=2.5;source.colors.set([.1,.4,.8],0);
+    const sun=controller.particleBody({id:'sun'},source);
+    assert.equal(sun.type,'Points');assert.equal(sun.geometry.attributes.position.count,3000);
+    assert.ok(Math.abs(sun.geometry.attributes.position.array[0]-2.8)<1e-6);
+    assert.ok(Math.abs(sun.geometry.attributes.color.array[1]-.4)<1e-6);
+    assert.equal(sun.material.map,source.material.map);
+    const display=context.SolarScene.DISPLAY.saturn,angle=27*Math.PI/180;
+    source.positions.set([display.center[0]+3.5*Math.cos(angle),3.5*Math.sin(angle),display.center[2]],display.start*3);
+    const saturn=controller.particleBody({id:'saturn'},source),point=saturn.geometry.attributes.position.array;
+    assert.equal(saturn.type,'Points');assert.equal(saturn.geometry.attributes.position.count,1500);
+    assert.ok(Math.abs(point[0]-3.5/1.5*1.9)<1e-5);assert.ok(Math.abs(point[1])<1e-5);assert.ok(Math.abs(point[2])<1e-5);
+});
+
+test('dragging restores a user-controlled view without altering the astronomical clock',()=>{
+    const context=vm.createContext({SolarData:require('../solar-data.js')});
+    vm.runInContext(fs.readFileSync(path.join(__dirname,'..','solar-scene.js'),'utf8'),context);
+    const view=Object.create(context.SolarScene.prototype);
+    view.azimuth=0;view.polar=.8;view.autoRotate=true;
+    view.clock=new context.SolarData.Clock(Date.UTC(2026,9,20));
+    view.rotateButton={setAttribute(){}};
+    view.orbit(100,30);
+    assert.equal(view.autoRotate,false);assert.equal(view.azimuth,-.5);assert.ok(view.polar>.8);
+    assert.equal(view.clock.rate,1);
+    view.setRotation(true);assert.equal(view.autoRotate,true);
 });
 
 test('Venus fist uses the Venus shape and reports the right name', () => {
