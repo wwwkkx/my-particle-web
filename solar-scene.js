@@ -154,6 +154,7 @@
             this.savedView=this.camera.view&&this.camera.view.enabled?{...this.camera.view}:null;
             this.scene.fog=null;this.active=true;this.group.visible=true;
             this.hud.hidden=false;this.hud.open=false;this.rotateButton.hidden=false;
+            this.viewWidth=null;this.viewHeight=null;this.dateEditing=false;this.hud.scrollTop=0;
             document.body.classList.add('solar-active');
             this.clock.realtime();this.cameraWall=Date.now();this.setRotation(true);this.overview();this.update();
         }
