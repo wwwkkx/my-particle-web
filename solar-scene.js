@@ -151,6 +151,7 @@
         }
         activate() {
             this.savedFog=this.scene.fog;this.savedNear=this.camera.near;this.savedFar=this.camera.far;
+            this.savedView=this.camera.view&&this.camera.view.enabled?{...this.camera.view}:null;
             this.scene.fog=null;this.active=true;this.group.visible=true;
             this.hud.hidden=false;this.hud.open=false;this.rotateButton.hidden=false;
             document.body.classList.add('solar-active');
@@ -159,6 +160,9 @@
         deactivate() {
             this.active=false;this.group.visible=false;this.hud.hidden=true;this.rotateButton.hidden=true;
             this.scene.fog=this.savedFog;this.camera.near=this.savedNear;this.camera.far=this.savedFar;
+            if(this.savedView) {
+                const v=this.savedView;this.camera.setViewOffset(v.fullWidth,v.fullHeight,v.offsetX,v.offsetY,v.width,v.height);
+            } else this.camera.clearViewOffset();
             this.camera.updateProjectionMatrix();
             delete this.canvas.dataset.solarBodies;
             document.body.classList.remove('solar-active');
@@ -222,9 +226,14 @@
             this.target.copy(this.focusId?this.meshes.get(this.focusId).position:new this.THREE.Vector3());
             const sp=Math.sin(this.polar);
             this.camera.position.set(this.target.x+this.distance*sp*Math.sin(this.azimuth),this.target.y+this.distance*Math.cos(this.polar),this.target.z+this.distance*sp*Math.cos(this.azimuth));
+            const width=this.canvas.clientWidth,height=this.canvas.clientHeight;
+            if(this.viewWidth!==width||this.viewHeight!==height) {
+                this.viewWidth=width;this.viewHeight=height;
+                // Lift the scene clear of the bottom toolbar and the collapsed mobile panel.
+                this.camera.setViewOffset(width,height,0,width<=900?60:38,width,height);
+            }
             if(this.camera.near!==.01||this.camera.far!==1000){this.camera.near=.01;this.camera.far=1000;this.camera.updateProjectionMatrix();}
             this.camera.lookAt(this.target);this.camera.updateMatrixWorld(true);
-            const width=this.canvas.clientWidth,height=this.canvas.clientHeight;
             this.projected=D.bodies.map(body=>{
                 const mesh=this.meshes.get(body.id),p=mesh.position.clone().project(this.camera);
                 const radius=mesh.userData.radius/mesh.position.distanceTo(this.camera.position)*height/(2*Math.tan(this.camera.fov*Math.PI/360));
