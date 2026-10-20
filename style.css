@@ -253,6 +253,11 @@ h2 { margin: 0; color: var(--ink); font-size: 20px; font-weight: 650; letter-spa
 .solar-eyebrow { display: block; color: #546071; font-size: 10px; letter-spacing: 1.2px; font-weight: 650; margin-bottom: 7px; }
 .solar-hud strong { display: block; font-size: 21px; color: var(--ink); letter-spacing: -.5px; }
 .solar-clock { display: block; color: #3a485b; font-size: 11px; font-variant-numeric: tabular-nums; line-height: 1.7; margin-top: 8px; }
+.solar-model-caption { display: block; margin-top: 4px; font-size: 10px; line-height: 1.6; color: #536074; }
+.solar-hud { scrollbar-width: thin; scrollbar-color: rgba(65,80,102,.35) transparent; }
+.solar-hud::-webkit-scrollbar { width: 6px; }
+.solar-hud::-webkit-scrollbar-track { background: transparent; }
+.solar-hud::-webkit-scrollbar-thumb { background: rgba(65,80,102,.35); border-radius: 6px; }
 .solar-expand { display: flex; align-items: center; justify-content: space-between; color: #005ac7; font-weight: 600; font-size: 12px; margin-top: 10px; }
 .solar-hud[open] .solar-expand span { transform: rotate(180deg); }
 .solar-settings { padding: 0 22px 20px; }
@@ -273,6 +278,7 @@ h2 { margin: 0; color: var(--ink); font-size: 20px; font-weight: 650; letter-spa
 .solar-error { font-size: 11px; color: #a62215; margin: 0 0 10px; }
 .solar-error:empty { display: none; }
 #solar-labels { position: fixed; inset: 0; z-index: 50; pointer-events: none; overflow: hidden; }
+#solar-labels[data-view="body"] { visibility: hidden; }
 #solar-labels svg { position: absolute; inset: 0; width: 100%; height: 100%; stroke: #c0d1e9; stroke-width: .7px; stroke-opacity: .48; fill: #d3e2f6; }
 .solar-label { position: absolute; min-height: 30px; min-width: 64px; padding: 5px 10px; border-radius: 15px; color: #f0f6ff; background: rgba(12,22,38,.86); border: 1px solid rgba(182,207,240,.25); backdrop-filter: blur(12px); font-size: 11px; line-height: 18px; white-space: nowrap; pointer-events: auto; }
 .solar-label:hover, .solar-label[aria-pressed="true"] { background: #e3edfb; color: #173257; border-color: #e3edfb; }
