@@ -122,3 +122,17 @@ test('the simulation clock accepts the new 7-days-per-second speed and defaults 
     assert.throws(() => clock.setRate(42));
     assert.equal(loadScene().DEFAULT_RATE, 86400);
 });
+
+test('planet particles stay at least ~3 px wide in the zoomed-out overview', () => {
+    const SolarScene = loadScene();
+    const vec = (x, y, z) => ({x, y, z, distanceTo(o) { return Math.hypot(this.x - o.x, this.y - o.y, this.z - o.z); }});
+    const view = Object.create(SolarScene.prototype);
+    const near = {position: vec(0, 0, 2), material: {size: 0}}, far = {position: vec(0, 0, 70), material: {size: 0}};
+    Object.assign(view, {camera: {fov: 75, position: vec(0, 0, 0)}, meshes: new Map([['sun', {material: {size: .22}}], ['earth', near], ['neptune', far]]),
+        moonSystems: new Map(), THREE: {Vector3: class {}}});
+    view.keepParticlesVisible(800);
+    const pxPerUnitAt = d => 800 / (2 * Math.tan(75 * Math.PI / 360) * d);
+    assert.equal(near.material.size, .15, 'close up keeps the fine base size');
+    assert.ok(far.material.size * pxPerUnitAt(70) >= 3.1, 'far away is enlarged to about 3 px');
+    assert.equal(view.meshes.get('sun').material.size, .22, 'the glowing sun is left alone');
+});

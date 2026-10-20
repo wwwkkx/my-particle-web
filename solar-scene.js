@@ -556,6 +556,7 @@
             }
             if(this.camera.near!==.01||this.camera.far!==1000){this.camera.near=.01;this.camera.far=1000;this.camera.updateProjectionMatrix();}
             this.camera.lookAt(this.target);this.camera.updateMatrixWorld(true);
+            this.keepParticlesVisible(height);
             this.projected=D.bodies.map(body=>{
                 const mesh=this.meshes.get(body.id),p=mesh.position.clone().project(this.camera);
                 const radius=mesh.userData.radius/mesh.position.distanceTo(this.camera.position)*height/(2*Math.tan(this.camera.fov*Math.PI/360));
@@ -572,6 +573,20 @@
                 this.hud.dataset.azimuth=String(this.azimuth);
                 this.hud.dataset.distance=String(this.distance);
                 this.hud.dataset.rotate=String(this.autoRotate);
+            }
+        }
+        // Solid particles are alpha-tested, so below ~3 px they vanish; grow them with distance instead.
+        keepParticlesVisible(height) {
+            if(!height)return;
+            const perPixel=2*Math.tan(this.camera.fov*Math.PI/360)/height,camera=this.camera.position;
+            for(const [id,mesh] of this.meshes) {
+                if(id==='sun')continue;
+                mesh.material.size=Math.max(.15,mesh.position.distanceTo(camera)*perPixel*3.2);
+            }
+            const world=new this.THREE.Vector3();
+            for(const {mesh} of this.moonSystems.values()) {
+                mesh.getWorldPosition(world);
+                mesh.material.size=Math.max(.12,world.distanceTo(camera)*perPixel*2.6);
             }
         }
         updateMoons(jd,dt,rate) {
