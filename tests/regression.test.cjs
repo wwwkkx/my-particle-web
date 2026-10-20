@@ -159,7 +159,7 @@ test('restored solar bodies are colored particle clouds and Saturn rings are rec
     source.positions.set([display.center[0]+3.5*Math.cos(angle),3.5*Math.sin(angle),display.center[2]],display.start*3);
     const saturn=controller.particleBody({id:'saturn'},source),point=saturn.geometry.attributes.position.array;
     assert.equal(saturn.type,'Points');assert.equal(saturn.geometry.attributes.position.count,1500);
-    assert.ok(Math.abs(point[0]-3.5/1.5*1.9)<1e-5);assert.ok(Math.abs(point[1])<1e-5);assert.ok(Math.abs(point[2])<1e-5);
+    assert.ok(Math.abs(point[0]-3.5/1.5*context.SolarScene.DISPLAY.saturn.radius)<1e-5);assert.ok(Math.abs(point[1])<1e-5);assert.ok(Math.abs(point[2])<1e-5);
 });
 
 test('dragging borrows the view without stopping rotation or altering the astronomical clock',()=>{

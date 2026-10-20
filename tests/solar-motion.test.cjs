@@ -123,16 +123,42 @@ test('the simulation clock accepts the new 7-days-per-second speed and defaults 
     assert.equal(loadScene().DEFAULT_RATE, 86400);
 });
 
-test('planet particles stay at least ~3 px wide in the zoomed-out overview', () => {
-    const SolarScene = loadScene();
-    const vec = (x, y, z) => ({x, y, z, distanceTo(o) { return Math.hypot(this.x - o.x, this.y - o.y, this.z - o.z); }});
+test('no planet, moon system or ring ever touches the sun or a neighbour, 1972–2049', () => {
+    const SolarScene = loadScene(), DISPLAY = SolarScene.DISPLAY;
+    const ids = D.bodies.map(body => body.id).filter(id => id !== 'sun');
     const view = Object.create(SolarScene.prototype);
-    const near = {position: vec(0, 0, 2), material: {size: 0}}, far = {position: vec(0, 0, 70), material: {size: 0}};
-    Object.assign(view, {camera: {fov: 75, position: vec(0, 0, 0)}, meshes: new Map([['sun', {material: {size: .22}}], ['earth', near], ['neptune', far]]),
-        moonSystems: new Map(), THREE: {Vector3: class {}}});
-    view.keepParticlesVisible(800);
-    const pxPerUnitAt = d => 800 / (2 * Math.tan(75 * Math.PI / 360) * d);
-    assert.equal(near.material.size, .15, 'close up keeps the fine base size');
-    assert.ok(far.material.size * pxPerUnitAt(70) >= 3.1, 'far away is enlarged to about 3 px');
-    assert.equal(view.meshes.get('sun').material.size, .22, 'the glowing sun is left alone');
+    for (let utc = Date.UTC(1972, 0, 1); utc < Date.UTC(2050, 0, 1); utc += 9 * 86400000) {
+        const jd = D.toJulianTDB(utc), at = id => view.displayPosition(id, jd);
+        for (let i = 0; i < ids.length; i++) {
+            const a = ids[i], pa = at(a);
+            assert.ok(Math.hypot(...pa) - DISPLAY[a].extent > DISPLAY.sun.radius, `${a} clears the sun`);
+            for (let j = i + 1; j < ids.length; j++) {
+                const b = ids[j], gap = Math.hypot(...pa.map((v, k) => v - at(b)[k])) - DISPLAY[a].extent - DISPLAY[b].extent;
+                assert.ok(gap > 0, `${a} and ${b} overlap on ${new Date(utc).toISOString().slice(0, 10)}`);
+            }
+        }
+    }
+});
+
+test('the asteroid belt fits between Mars and Jupiter, and its particles obey Kepler (inner ones faster)', () => {
+    const SolarScene = loadScene(), DISPLAY = SolarScene.DISPLAY, {belt} = SolarScene.LAYOUT;
+    const mars = D.orbitalElements('mars', D.J2000), jupiter = D.orbitalElements('jupiter', D.J2000);
+    assert.ok(belt.inner > DISPLAY.mars.orbit * (1 + mars.e) + DISPLAY.mars.extent);
+    assert.ok(belt.outer < DISPLAY.jupiter.orbit * (1 - jupiter.e) - DISPLAY.jupiter.extent);
+    const source = fs.readFileSync(path.join(__dirname, '..', 'solar-scene.js'), 'utf8');
+    assert.match(source, /Math\.pow\(au,1\.5\)/, 'mean motion n ∝ a^-1.5');
+});
+
+test("moon distances keep Kepler's third-law order inside each system", () => {
+    const SolarScene = loadScene();
+    for (const parent of new Set(D.moons.map(moon => moon.parent))) {
+        const list = D.moons.filter(moon => moon.parent === parent).sort((a, b) => Math.abs(a.periodDays) - Math.abs(b.periodDays));
+        for (let i = 1; i < list.length; i++) assert.ok(SolarScene.MOON_DISPLAY[list[i].id].orbit > SolarScene.MOON_DISPLAY[list[i - 1].id].orbit);
+    }
+    assert.ok(SolarScene.MOON_DISPLAY.titan.orbit - SolarScene.MOON_DISPLAY.titan.radius > SolarScene.DISPLAY.saturn.radius * 3.5 / 1.5, 'Titan orbits outside the rings');
+});
+
+test('every body glows like the sun: additive particles, no solid fill', () => {
+    const source = fs.readFileSync(path.join(__dirname, '..', 'solar-scene.js'), 'utf8');
+    assert.doesNotMatch(source, /NormalBlending|alphaTest|addSurfaceFill|createLabels/);
 });
