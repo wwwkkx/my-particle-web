@@ -1601,16 +1601,51 @@ function updateSceneControls() {
     const solarButton = document.getElementById('solar-system-btn');
     if (solarButton) {
         solarButton.style.display = 'block';
-        solarButton.textContent = currentShape === 'solar_system' ? '← 返回星云' : '🌌 太阳系全景';
+        solarButton.textContent = currentShape === 'solar_system' ? '返回星云' : '太阳系全景';
     }
     const shapeButton = document.getElementById('shape-btn');
-    if (shapeButton) shapeButton.textContent = currentShape === 'scatter' ? '✨ 凝聚' : '✨ 返回星云';
+    if (shapeButton) shapeButton.textContent = currentShape === 'scatter' ? '凝聚' : '返回星云';
     for (const id of ['prev-theme-btn', 'next-theme-btn']) {
         const button = document.getElementById(id);
         if (button) button.disabled = currentShape !== 'scatter' || isColorAnimating;
     }
-    const picker = document.getElementById('planet-picker');
-    if (picker) picker.value = Object.hasOwn(themeNames, currentTheme) ? currentTheme : '';
+    const selectedName = document.getElementById('selected-planet-name');
+    if (selectedName) selectedName.textContent = themeNames[currentTheme] || '选择星球';
+    for (const option of document.querySelectorAll('[data-theme]')) {
+        option.setAttribute('aria-pressed', String(option.dataset.theme === currentTheme));
+    }
+}
+
+
+function closePlanetPanel(restoreFocus = true) {
+    const panel = document.getElementById('planet-panel');
+    if (!panel || !panel.open) return;
+    panel.open = false;
+    if (restoreFocus) document.getElementById('planet-picker-trigger').focus({ preventScroll: true });
+}
+
+function choosePlanet(name) {
+    explorePlanet(name);
+    closePlanetPanel();
+}
+
+const planetPanel = document.getElementById('planet-panel');
+if (planetPanel) {
+    planetPanel.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' && planetPanel.open) {
+            event.preventDefault();
+            event.stopPropagation();
+            closePlanetPanel();
+        }
+    });
+    planetPanel.addEventListener('toggle', () => {
+        if (planetPanel.open) document.querySelector('.help-control').open = false;
+    });
+    document.addEventListener('click', (event) => {
+        if (planetPanel.open && !planetPanel.contains(event.target)) closePlanetPanel(false);
+    });
+    const help = document.querySelector('.help-control');
+    help.addEventListener('toggle', () => { if (help.open) closePlanetPanel(false); });
 }
 
 function viewPosition(shape) {
@@ -1747,7 +1782,7 @@ let clickStartPos = { x: 0, y: 0 };
 function updateStatusText(text) {
     const statusEl = document.getElementById('status');
     if (statusEl) {
-        statusEl.innerText = text;
+        statusEl.innerText = text.replace(/^[^\p{L}\p{N}]+/u, '');
         statusEl.classList.add('active');
         // Clear active class after some time? No, the original code keeps it active or relies on transitions.
         // Actually original code doesn't remove 'active'. It just updates text.
@@ -1920,7 +1955,7 @@ function updateMusicInfo() {
     if (nameEl) {
         // Remove extension
         const name = songList[currentSongIndex].replace(/\.[^/.]+$/, "");
-        nameEl.innerText = "🎵 " + name + "   "; // Add padding for loop
+        nameEl.innerText = name;
     }
 }
 
@@ -2291,7 +2326,7 @@ async function startApp() {
     const overlay = document.getElementById('overlay');
     
     btn.disabled = true;
-    btn.innerText = "Launching..."; // Updated text
+    btn.innerText = "正在进入…";
 
     try {
         initThree();
@@ -2329,7 +2364,7 @@ async function startApp() {
         console.error(e);
         alert("Initialization Failed: " + e.message);
         btn.disabled = false;
-        btn.innerText = "Retry";
+        btn.innerText = "重新尝试";
     }
 }
 
