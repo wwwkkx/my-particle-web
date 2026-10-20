@@ -47,8 +47,16 @@ function environment() {
         navigator: {mediaDevices: {getUserMedia: async () => { throw Object.assign(new Error(), {name:'NotAllowedError'}); }}},
         Hands: class {setOptions() {} onResults(callback) { this.results = callback; } send() {return Promise.resolve();}},
         requestAnimationFrame() { return 1; }, cancelAnimationFrame() {},
+        SolarScene: class {
+            constructor(three, scene, camera, canvas, onFocus) {Object.assign(this,{camera,onFocus});}
+            activate() {this.active=true;this.focusId=null;this.camera.position.set(0,75,90);this.onFocus(null);}
+            deactivate() {this.active=false;}
+            focus(id) {this.focusId=id;this.onFocus(id);}
+            resize() {} pick() {return null;}
+        },
     });
     const run = code => vm.runInContext(code, context);
+    run(fs.readFileSync(path.join(__dirname, '..', 'solar-data.js'), 'utf8'));
     run(fs.readFileSync(path.join(__dirname, '..', 'script.js'), 'utf8'));
     run(`camera = {fov:75, aspect:1373/731, position:new THREE.Vector3(0,2,12), lookAt(){}, updateMatrixWorld(){}};
         scene = {fog:{density:0.05}, remove(){}};
@@ -57,6 +65,8 @@ function environment() {
             positions.push(...new Array(PARTICLE_COUNT*3).fill(positions === venusPos ? 3 : 1));
         }
         christmasColors.fill(0.2); solarSystemColors.fill(0.6); venusColors.fill(0.8); earthColors.fill(0.9);
+        particles.geometry.attributes.color.array.set(christmasColors);
+        renderer={domElement:{}};
     `);
     const finish = () => {
         while (tweens.length) {
@@ -99,17 +109,34 @@ test('returning during entry animation cannot leave the user stuck in solar mode
     assert.equal(e.run('currentTheme'), 'christmas');
 });
 
-test('solar camera contains its bounding sphere at desktop and phone aspect ratios', () => {
-    const e = environment();
+test('physical solar camera fits the outer orbit and a focused planet on desktop and phone', () => {
+    const context=vm.createContext({SolarData:require('../solar-data.js')});
+    vm.runInContext(fs.readFileSync(path.join(__dirname,'..','solar-scene.js'),'utf8'),context);
     for (const aspect of [1373/731,390/844,320/568,844/390]) {
-        e.context.aspectUnderTest = aspect;
-        const result = e.run(`camera.aspect = aspectUnderTest;
-            (() => { const p = viewPosition('solar_system');
-            const halfV = THREE.MathUtils.degToRad(camera.fov)/2;
-            const halfH = Math.atan(Math.tan(halfV)*camera.aspect);
-            return Math.hypot(p.x,p.y,p.z)*Math.sin(Math.min(halfV,halfH)); })()`);
-        assert.ok(result > 33, `radius at aspect ${aspect}`);
+        context.aspect=aspect;
+        const radii=vm.runInContext(`(() => {
+            const view=Object.create(SolarScene.prototype);view.camera={fov:75,aspect};view.mode='overview';
+            view.resize();const overview=view.distance*Math.sin(view.halfFov());
+            view.mode='body';view.focusId='earth';view.resize();
+            return [overview,view.distance*Math.sin(view.halfFov())/SolarData.byId.earth.radiusAU];
+        })()`,context);
+        assert.ok(radii[0]>51,`outer radius at aspect ${aspect}`);
+        assert.ok(radii[1]>1.5,`focused radius at aspect ${aspect}`);
     }
+});
+
+test('physical planet selection follows in place and art selection exits cleanly',()=>{
+    const e=environment();e.run("enterSolarSystem(); choosePlanet('earth')");e.finish();
+    assert.equal(e.run('currentShape'),'solar_system');
+    assert.equal(e.run('physicalSolar.focusId'),'earth');
+    assert.equal(e.element('selected-planet-name').textContent,'地球');
+    assert.equal(e.run('particles.visible'),false);
+    assert.equal(e.element('camera-toggle').disabled,true);
+    e.run("choosePlanet('black_hole')");e.finish();
+    assert.equal(e.run('physicalSolar.active'),false);
+    assert.equal(e.run('particles.visible'),true);
+    assert.equal(e.element('camera-toggle').disabled,false);
+    assert.equal(e.run('currentShape'),'black_hole');
 });
 
 test('Venus fist uses the Venus shape and reports the right name', () => {
