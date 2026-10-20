@@ -59,8 +59,9 @@
     function solveKepler(meanRadians,eccentricity) {
         if (!Number.isFinite(meanRadians) || !(eccentricity>=0 && eccentricity<1)) throw new RangeError('Invalid elliptical orbit');
         const mean = ((meanRadians+Math.PI)%(2*Math.PI)+2*Math.PI)%(2*Math.PI)-Math.PI;
-        let eccentric = mean;
-        for (let i=0;i<20;i++) {
+        // Danby's starting value keeps Newton's method stable for comet-like eccentricities.
+        let eccentric = eccentricity<.8 ? mean : mean+.85*eccentricity*Math.sign(Math.sin(mean)||1);
+        for (let i=0;i<60;i++) {
             const delta=(eccentric-eccentricity*Math.sin(eccentric)-mean)/(1-eccentricity*Math.cos(eccentric));
             eccentric-=delta;
             if (Math.abs(delta)<1e-13) return eccentric;
@@ -100,10 +101,11 @@
         if (!body) throw new RangeError('Unknown body: '+id);
         return wrapDegrees(body.prime+body.spinRate*(jd-J2000))*DEG;
     }
-    function orientation(id,jd) {
+    // spinOverride (radians) keeps the true pole but lets the renderer choose a visible spin phase.
+    function orientation(id,jd,spinOverride) {
         const body=byId[id],t=(jd-J2000)/36525;
         let ra=(body.pole[0]+body.pole[2]*t)*DEG,dec=(body.pole[1]+body.pole[3]*t)*DEG;
-        const w=spinAngle(id,jd);
+        const w=Number.isFinite(spinOverride)?spinOverride:spinAngle(id,jd);
         const u=[-Math.sin(ra),Math.cos(ra),0];
         const v=[-Math.sin(dec)*Math.cos(ra),-Math.sin(dec)*Math.sin(ra),Math.cos(dec)];
         const north=[Math.cos(dec)*Math.cos(ra),Math.cos(dec)*Math.sin(ra),Math.sin(dec)];
@@ -111,12 +113,52 @@
         const z=u.map((value,i)=>value*Math.sin(w)-v[i]*Math.cos(w));
         return {x:equatorialToWorld(x),north:equatorialToWorld(north),z:equatorialToWorld(z)};
     }
+    // Axial tilt: angle between the spin vector and the body's own orbit normal, in degrees.
+    // The pole sign follows spinRate, so retrograde rotators read above 90° (Venus ≈ 177°, Uranus ≈ 98°).
+    function obliquity(id,jd) {
+        const body=byId[id],north=orientation(id,jd,0).north,sign=Math.sign(body.spinRate);
+        if (id==='sun') return 7.25;
+        const orbit=orbitalElements(id,jd),i=orbit.I*DEG,node=orbit.node*DEG;
+        const normal=toWorld([Math.sin(i)*Math.sin(node),-Math.sin(i)*Math.cos(node),Math.cos(i)]);
+        const dot=sign*(north[0]*normal[0]+north[1]*normal[1]+north[2]*normal[2]);
+        return Math.acos(Math.max(-1,Math.min(1,dot)))/DEG;
+    }
+
+    // Major moons. Periods are sidereal (days, negative = retrograde): JPL satellite parameters.
+    // The Moon's phase uses its J2000 mean longitude; the others share an approximate reference.
+    const moons = [
+        {id:'moon',name:'月球',parent:'earth',radiusKm:1737.4,periodDays:27.321661,plane:'ecliptic',longitude0:218.3165,color:[.82,.82,.8]},
+        {id:'phobos',name:'火卫一',parent:'mars',radiusKm:11.1,periodDays:.31891,plane:'equator',longitude0:0,color:[.62,.55,.5]},
+        {id:'deimos',name:'火卫二',parent:'mars',radiusKm:6.2,periodDays:1.26244,plane:'equator',longitude0:120,color:[.7,.62,.55]},
+        {id:'io',name:'木卫一',parent:'jupiter',radiusKm:1821.6,periodDays:1.769138,plane:'equator',longitude0:106.07719,color:[.98,.86,.42]},
+        {id:'europa',name:'木卫二',parent:'jupiter',radiusKm:1560.8,periodDays:3.551181,plane:'equator',longitude0:175.73161,color:[.9,.86,.76]},
+        {id:'ganymede',name:'木卫三',parent:'jupiter',radiusKm:2634.1,periodDays:7.154553,plane:'equator',longitude0:120.55883,color:[.7,.66,.6]},
+        {id:'callisto',name:'木卫四',parent:'jupiter',radiusKm:2410.3,periodDays:16.689018,plane:'equator',longitude0:84.44459,color:[.5,.46,.42]},
+        {id:'titan',name:'土卫六',parent:'saturn',radiusKm:2574.7,periodDays:15.945421,plane:'equator',longitude0:0,color:[.92,.7,.36]},
+        {id:'triton',name:'海卫一',parent:'neptune',radiusKm:1353.4,periodDays:-5.876854,plane:'equator',longitude0:0,color:[.86,.8,.78]},
+        {id:'charon',name:'冥卫一',parent:'pluto',radiusKm:606,periodDays:6.387230,plane:'equator',longitude0:0,color:[.68,.66,.66]}
+    ].map(moon=>Object.freeze(moon));
+    function moonLongitude(id,jd) {
+        const moon=moons.find(item=>item.id===id);
+        if (!moon) throw new RangeError('Unknown moon: '+id);
+        return wrapDegrees(moon.longitude0+360/moon.periodDays*(jd-J2000))*DEG;
+    }
+
+    // 1P/Halley osculating elements (JPL SBDB, epoch 1994): perihelion 1986-02-09, next 2061.
+    const halley = Object.freeze({a:17.834144,e:.96714291,inclination:162.26269,node:58.42008,argPeri:111.33249,perihelionJD:2446467.395});
+    function cometPosition(jd) {
+        const c=halley,periodDays=365.25*Math.pow(c.a,1.5);
+        const mean=wrapDegrees(360*(jd-c.perihelionJD)/periodDays)*DEG;
+        const orbit={a:c.a,e:c.e,I:c.inclination,node:c.node,peri:c.node+c.argPeri};
+        return pointAtEccentricAnomaly(orbit,solveKepler(mean,c.e));
+    }
+    const RATES = Object.freeze([0,1,3600,86400,604800,2592000]);
     class Clock {
         constructor(wallMs=Date.now()) { this.epoch=Math.min(MAX_UTC,Math.max(MIN_UTC,wallMs));this.wall=wallMs;this.rate=1; }
         value(wallMs=Date.now()) { return Math.min(MAX_UTC,Math.max(MIN_UTC,this.epoch+(wallMs-this.wall)*this.rate)); }
-        setRate(rate,wallMs=Date.now()) { if(![0,1,3600,86400,2592000].includes(rate)) throw new RangeError('Invalid time rate');this.epoch=this.value(wallMs);this.wall=wallMs;this.rate=rate; }
+        setRate(rate,wallMs=Date.now()) { if(!RATES.includes(rate)) throw new RangeError('Invalid time rate');this.epoch=this.value(wallMs);this.wall=wallMs;this.rate=rate; }
         setTime(utcMs,wallMs=Date.now()) { if(!Number.isFinite(utcMs)||utcMs<MIN_UTC||utcMs>MAX_UTC)throw new RangeError('日期须在 1972-01-01 至 2050-01-01 之间');this.epoch=utcMs;this.wall=wallMs; }
         realtime(wallMs=Date.now()) { this.setTime(wallMs,wallMs);this.rate=1; }
     }
-    return Object.freeze({AU_KM,DAY_MS,J2000,DEG,MIN_UTC,MAX_UTC,bodies,byId,pluto,wrapDegrees,toJulianTDB,solveKepler,orbitalElements,pointAtEccentricAnomaly,position,toWorld,orientation,spinAngle,Clock});
+    return Object.freeze({AU_KM,DAY_MS,J2000,DEG,MIN_UTC,MAX_UTC,RATES,bodies,byId,pluto,moons,halley,wrapDegrees,toJulianTDB,solveKepler,orbitalElements,pointAtEccentricAnomaly,position,toWorld,orientation,obliquity,spinAngle,moonLongitude,cometPosition,Clock});
 });

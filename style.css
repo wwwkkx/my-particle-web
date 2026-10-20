@@ -403,6 +403,38 @@ h2 { margin: 0; color: var(--label); font-size: 22px; font-weight: 700; letter-s
 .solar-sources p { margin-top: 8px; }
 .solar-sources a { color: var(--link); text-decoration: none; }
 .solar-sources a:hover { text-decoration: underline; }
+.solar-toggles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin: -4px 0 14px; }
+.solar-toggles button { min-height: 32px; padding: 6px 4px; border-radius: 980px; font-size: 12px; font-weight: 500; color: var(--label-2); background: rgba(118, 118, 128, 0.12); box-shadow: inset 0 0 0 0.5px var(--hairline); }
+.solar-toggles button[aria-pressed="true"] { color: var(--label); background: var(--fill-2); box-shadow: none; }
+.solar-toggles button:hover { background: var(--fill); }
+.solar-fact { margin: -4px 0 14px; font-size: 13px; line-height: 1.6; color: var(--label); }
+.solar-fact:empty { display: none; }
+
+/* Floating names over the 3D scene */
+.solar-labels { position: fixed; inset: 0; z-index: 70; pointer-events: none; overflow: hidden; }
+.solar-label {
+    position: absolute;
+    left: 0;
+    top: 0;
+    padding: 2px 7px;
+    border-radius: 980px;
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 16px;
+    white-space: nowrap;
+    color: var(--label);
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
+    visibility: hidden;
+    will-change: transform;
+}
+button.solar-label { pointer-events: auto; cursor: pointer; background: none; transition: background-color 200ms var(--ease); }
+button.solar-label:hover { background: rgba(30, 30, 32, 0.7); text-shadow: none; }
+button.solar-label:active { transform: none; }
+.solar-label-star { color: #ffd78a; font-weight: 600; }
+.solar-label-moon { font-size: 11px; color: var(--label-2); }
+.solar-label-comet { font-size: 11px; color: #9fd4ff; }
+body:has(#planet-panel[open]) .solar-labels { visibility: hidden; }
+@media (max-width: 640px) { .solar-label { font-size: 11px; } .solar-label-moon, .solar-label-comet { font-size: 10px; } }
 .solar-error { font-size: 12px; color: var(--red); margin: 0 0 10px; }
 .solar-error:empty { display: none; }
 .solar-active #status, .solar-active .help-control { display: none; }

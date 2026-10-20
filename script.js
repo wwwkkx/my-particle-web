@@ -1746,6 +1746,7 @@ function setupPointerControls(canvas) {
         pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
         canvas.setPointerCapture(event.pointerId);
         isMouseDragging = true;
+        if (physicalSolar && physicalSolar.active) physicalSolar.beginDrag();
         lastPinchDistance = pointers.size === 2 ? pinchDistance() : null;
     });
     canvas.addEventListener('pointermove', (event) => {
@@ -1777,6 +1778,7 @@ function setupPointerControls(canvas) {
         pointers.delete(event.pointerId);
         isMouseDragging = pointers.size > 0;
         lastPinchDistance = null;
+        if (!pointers.size && physicalSolar && physicalSolar.active) physicalSolar.endDrag();
         if (canvas.hasPointerCapture(event.pointerId)) canvas.releasePointerCapture(event.pointerId);
         if (!isClick) return;
         const point = normalizedPoint(event.clientX, event.clientY);
@@ -1791,7 +1793,10 @@ function setupPointerControls(canvas) {
         }
     };
     for (const name of ['pointerup', 'pointercancel', 'lostpointercapture']) canvas.addEventListener(name, endPointer);
-    window.addEventListener('blur', () => { pointers.clear(); isMouseDragging = false; lastPinchDistance = null; });
+    window.addEventListener('blur', () => {
+        pointers.clear(); isMouseDragging = false; lastPinchDistance = null;
+        if (physicalSolar && physicalSolar.active) physicalSolar.endDrag();
+    });
     canvas.addEventListener('wheel', (event) => {
         event.preventDefault();
         if (isAnimating || event.deltaY === 0) return;

@@ -162,17 +162,17 @@ test('restored solar bodies are colored particle clouds and Saturn rings are rec
     assert.ok(Math.abs(point[0]-3.5/1.5*1.9)<1e-5);assert.ok(Math.abs(point[1])<1e-5);assert.ok(Math.abs(point[2])<1e-5);
 });
 
-test('dragging restores a user-controlled view without altering the astronomical clock',()=>{
+test('dragging borrows the view without stopping rotation or altering the astronomical clock',()=>{
     const context=vm.createContext({SolarData:require('../solar-data.js')});
     vm.runInContext(fs.readFileSync(path.join(__dirname,'..','solar-scene.js'),'utf8'),context);
     const view=Object.create(context.SolarScene.prototype);
     view.azimuth=0;view.polar=.8;view.autoRotate=true;
     view.clock=new context.SolarData.Clock(Date.UTC(2026,9,20));
     view.rotateButton={setAttribute(){}};
-    view.orbit(100,30);
-    assert.equal(view.autoRotate,false);assert.equal(view.azimuth,-.5);assert.ok(view.polar>.8);
+    view.beginDrag();view.orbit(100,30);
+    assert.equal(view.autoRotate,true);assert.equal(view.azimuth,-.5);assert.ok(view.polar>.8);
     assert.equal(view.clock.rate,1);
-    view.setRotation(true);assert.equal(view.autoRotate,true);
+    view.setRotation(false);assert.equal(view.autoRotate,false);
 });
 
 test('Venus fist uses the Venus shape and reports the right name', () => {
