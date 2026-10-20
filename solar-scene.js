@@ -22,9 +22,8 @@
             this.group.add(new THREE.AmbientLight(0xffffff, .38));
             this.group.add(new THREE.PointLight(0xffffff, 1.1, 0, 0));
             for (const body of D.bodies) {
-                const material = new (body.id === 'sun' ? THREE.MeshBasicMaterial : THREE.MeshPhongMaterial)({
-                    map: this.surface(body), shininess: 3
-                });
+                const options={map:this.surface(body)};
+                const material = body.id==='sun' ? new THREE.MeshBasicMaterial(options) : new THREE.MeshPhongMaterial({...options,shininess:3});
                 const mesh = new THREE.Mesh(new THREE.SphereGeometry(body.radiusAU, 64, 32), material);
                 mesh.userData.bodyId = body.id;
                 this.group.add(mesh);
@@ -73,10 +72,10 @@
         createInterface() {
             this.hud = document.createElement('details');
             this.hud.id='solar-hud'; this.hud.className='solar-hud glass'; this.hud.hidden=true;
-            this.hud.innerHTML = `<summary><span class="solar-eyebrow">SOLAR SYSTEM · 真实比例</span><strong id="solar-view-name">太阳系全景</strong><span class="solar-clock" id="solar-clock"></span><span class="solar-expand">时间与数据 <span aria-hidden="true">⌄</span></span></summary>
+            this.hud.innerHTML = `<summary><span class="solar-eyebrow">SOLAR SYSTEM · 真实比例</span><strong id="solar-view-name">太阳系全景</strong><span class="solar-clock" id="solar-clock"></span><span class="solar-model-caption">轨道近似 · 纹理示意 · 圆点为定位标记</span><span class="solar-expand">时间与数据 <span aria-hidden="true">⌄</span></span></summary>
                 <div class="solar-settings">
                     <div class="solar-view-buttons"><button type="button" data-view="overview">全太阳系</button><button type="button" data-view="inner">内太阳系</button></div>
-                    <label class="solar-field">模拟速度<select id="solar-speed"><option value="0">暂停</option><option value="1">实时 · 1×</option><option value="3600">1 小时 / 秒</option><option value="86400">1 天 / 秒</option><option value="2592000">30 天 / 秒</option></select></label>
+                    <label class="solar-field">模拟速度<select id="solar-speed" aria-label="模拟速度"><option value="0">暂停</option><option value="1">实时 · 1×</option><option value="3600">1 小时 / 秒</option><option value="86400">1 天 / 秒</option><option value="2592000">30 天 / 秒</option></select></label>
                     <label class="solar-field">日期与时间（UTC）<input id="solar-date" type="datetime-local" step="1" min="1972-01-01T00:00:00" max="2050-01-01T00:00:00"></label>
                     <div class="solar-view-buttons"><button type="button" id="solar-now">回到此刻 · 1×</button><button type="button" id="solar-pause">暂停</button></div>
                     <p id="solar-error" class="solar-error" role="alert"></p>
@@ -139,6 +138,8 @@
         }
         overview(inner=false) {
             this.mode=inner?'inner':'overview';this.focusId=null;
+            this.labelLayer.dataset.view=this.mode;
+            for(const line of this.orbits.values())line.visible=true;
             this.azimuth=.25;this.polar=.55;
             this.resize(true);
             this.refreshHud(true);this.onFocus(null);
@@ -146,6 +147,8 @@
         focus(id) {
             if (!D.byId[id]) return;
             this.mode='body';this.focusId=id;
+            this.labelLayer.dataset.view='body';
+            for(const line of this.orbits.values())line.visible=false;
             this.azimuth=.3;this.polar=1.05;
             // Camera distance depends on the viewport; physical radii remain unchanged.
             const halfFov=this.halfFov();
