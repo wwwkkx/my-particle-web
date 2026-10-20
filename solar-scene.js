@@ -107,7 +107,7 @@
             document.body.appendChild(this.rotateButton);
             this.hud=document.createElement('details');
             this.hud.id='solar-hud';this.hud.className='solar-hud glass';this.hud.hidden=true;
-            this.hud.innerHTML=`<summary><span class="solar-eyebrow">PARTICLE SOLAR SYSTEM</span><strong id="solar-view-name">粒子太阳系</strong><span class="solar-clock" id="solar-clock"></span><span class="solar-expand">视角与时间 <span aria-hidden="true">⌄</span></span></summary>
+            this.hud.innerHTML=`<summary><span class="solar-eyebrow">实时轨道</span><strong id="solar-view-name">粒子太阳系</strong><span class="solar-clock" id="solar-clock"></span><span class="solar-expand">视角与时间 <span aria-hidden="true">⌄</span></span></summary>
                 <div class="solar-settings">
                     <div class="solar-view-buttons"><button type="button" data-view="overview">太阳系全景</button><button type="button" data-view="inner">内太阳系</button></div>
                     <label class="solar-field">模拟速度<select id="solar-speed" aria-label="模拟速度"><option value="0">暂停自转 / 公转</option><option value="1">实时 · 1×</option><option value="3600">1 小时 / 秒</option><option value="86400">1 天 / 秒</option><option value="2592000">30 天 / 秒</option></select></label>

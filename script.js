@@ -1871,11 +1871,35 @@ let cameraRequestId = 0;
 let cameraFrameId = null;
 let cameraProcessing = false;
 
+const MEDIAPIPE_HANDS_BASE = 'https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/';
+let handsLibraryPromise = null;
+
+// The gesture model is several megabytes and is only needed once the camera is switched on,
+// so it is fetched on demand instead of blocking the first visit.
+function loadHandsLibrary() {
+    if (typeof Hands === 'function') return Promise.resolve();
+    if (!handsLibraryPromise) {
+        handsLibraryPromise = new Promise((resolve, reject) => {
+            const script = document.createElement('script');
+            script.src = MEDIAPIPE_HANDS_BASE + 'hands.js';
+            script.crossOrigin = 'anonymous';
+            script.async = true;
+            script.onload = () => typeof Hands === 'function' ? resolve() : reject(new Error('手势库加载失败'));
+            script.onerror = () => reject(new Error('手势库加载失败'));
+            document.head.appendChild(script);
+        }).catch(error => {
+            handsLibraryPromise = null;
+            throw error;
+        });
+    }
+    return handsLibraryPromise;
+}
+
 function initMediaPipe() {
     if (hands) return;
 
     hands = new Hands({
-        locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
+        locateFile: (file) => MEDIAPIPE_HANDS_BASE + file
     });
 
     hands.setOptions({
@@ -1979,11 +2003,11 @@ function initMediaPipe() {
 
 
 const songList = [
-    'Abyss Pulse.wav',
-    'Gravity Echo.wav',
-    'Monument Zero.wav',
-    'Pluto.wav',
-    'Przybylski’s Star.wav'
+    'Abyss Pulse.m4a',
+    'Gravity Echo.m4a',
+    'Monument Zero.m4a',
+    'Pluto.m4a',
+    'Przybylski’s Star.m4a'
 ];
 let currentSongIndex = 0;
 
@@ -2101,14 +2125,29 @@ async function toggleCamera(checkbox) {
         if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
             throw new Error('此浏览器不支持摄像头');
         }
-        initMediaPipe();
-        const stream = await navigator.mediaDevices.getUserMedia({
+        // Ask for the camera and fetch the gesture library at the same time.
+        const streamRequest = navigator.mediaDevices.getUserMedia({
             audio: false, video: { width: { ideal: 480 }, height: { ideal: 360 }, facingMode: 'user' }
         });
+        const libraryRequest = loadHandsLibrary();
+        libraryRequest.catch(() => {});
+        const stream = await streamRequest;
         if (requestId !== cameraRequestId || !checkbox.checked) {
             stream.getTracks().forEach(track => track.stop());
             return;
         }
+        try {
+            if (typeof Hands !== 'function') updateStatusText('🖐️ 正在加载手势识别…');
+            await libraryRequest;
+        } catch (error) {
+            stream.getTracks().forEach(track => track.stop());
+            throw error;
+        }
+        if (requestId !== cameraRequestId || !checkbox.checked) {
+            stream.getTracks().forEach(track => track.stop());
+            return;
+        }
+        initMediaPipe();
         cameraStream = stream;
         const video = document.getElementById('input_video');
         video.srcObject = stream;
@@ -2123,6 +2162,7 @@ async function toggleCamera(checkbox) {
         stopCamera();
         const denied = error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError';
         updateStatusText(denied ? '🖐️ 摄像头权限未开启，仍可使用拖动操作'
+            : error.message === '手势库加载失败' ? '🖐️ 手势识别加载失败，请检查网络后重试'
             : '🖐️ 摄像头启动失败，请检查设备或重试');
     }
 }
@@ -2368,7 +2408,7 @@ async function startApp() {
     const overlay = document.getElementById('overlay');
     
     btn.disabled = true;
-    btn.innerText = "正在进入…";
+    setStartLabel('正在进入…', true);
 
     try {
         initThree();
@@ -2404,11 +2444,29 @@ async function startApp() {
 
     } catch (e) {
         console.error(e);
-        alert("Initialization Failed: " + e.message);
+        const hint = document.querySelector('.welcome-hint');
+        if (hint) hint.textContent = '启动失败：你的浏览器可能不支持 WebGL，请换用最新版 Chrome、Safari 或 Edge。';
         btn.disabled = false;
-        btn.innerText = "重新尝试";
+        setStartLabel('重新尝试', false);
     }
 }
+
+function setStartLabel(text, busy) {
+    const btn = document.getElementById('start-btn');
+    if (!btn) return;
+    const label = btn.querySelector ? btn.querySelector('.start-label') : null;
+    if (label) label.textContent = text;
+    else btn.textContent = text;
+    if (btn.classList && btn.classList.toggle) btn.classList.toggle('is-busy', Boolean(busy));
+}
+
+// Scripts are deferred, so the entry button stays disabled until every handler exists.
+(function readyStartButton() {
+    const btn = document.getElementById('start-btn');
+    if (!btn || appStarted) return;
+    btn.disabled = false;
+    setStartLabel('进入宇宙', false);
+})();
 
 // Window Resize
 window.addEventListener('resize', () => {

@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <radialGradient id="planet" cx="36%" cy="32%" r="80%">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="0.45" stop-color="#c9d3e6"/>
+      <stop offset="1" stop-color="#4b5a78"/>
+    </radialGradient>
+  </defs>
+  <rect width="64" height="64" rx="14" fill="#000"/>
+  <g transform="rotate(-18 32 32)" fill="none" stroke-width="3.2" stroke-linecap="round">
+    <path d="M4 32 A28 6.4 0 0 1 60 32" stroke="#d8c7a4" stroke-opacity="0.6"/>
+    <circle cx="32" cy="32" r="13" fill="url(#planet)" stroke="none"/>
+    <path d="M60 32 A28 6.4 0 0 1 4 32" stroke="#efe2c4"/>
+  </g>
+</svg>
