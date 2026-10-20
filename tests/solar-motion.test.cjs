@@ -100,7 +100,7 @@ test('moons follow real periods, Triton runs backwards, and the Moon uses its tr
     assert.ok(Math.abs(advance('moon') - 13.176358 * .01) < 1e-6);
     assert.ok(advance('triton') > 180, 'retrograde');
     assert.ok(Math.abs(D.moonLongitude('moon', D.J2000) / D.DEG - 218.3165) < 1e-9);
-    assert.equal(new Set(D.moons.map(moon => moon.parent)).size, 6);
+    assert.equal(new Set(D.moons.map(moon => moon.parent)).size, 7);
 });
 
 test('distance mapping passes through every planet orbit and stays monotonic', () => {
