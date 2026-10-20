@@ -1639,7 +1639,9 @@ if (planetPanel) {
         }
     });
     planetPanel.addEventListener('toggle', () => {
-        if (planetPanel.open) document.querySelector('.help-control').open = false;
+        const help = document.querySelector('.help-control');
+        help.hidden = planetPanel.open;
+        if (planetPanel.open) help.open = false;
     });
     document.addEventListener('click', (event) => {
         if (planetPanel.open && !planetPanel.contains(event.target)) closePlanetPanel(false);
